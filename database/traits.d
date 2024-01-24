@@ -222,8 +222,8 @@ template sortTable(T...) if (T.length <= uint.max) {
 		uint[][N] g;
 		uint[N] in_;
 		foreach (i, Table; T) {
-			foreach (j, _; Table.tupleof)
-				foreach (S; __traits(getAttributes, Table.tupleof[j]))
+			foreach (alias f; Table.tupleof)
+				foreach (S; __traits(getAttributes, f))
 					static if (is(typeof(S) == sqlkey) && S.key.length) {
 						g[nameToIndex[S.key[0 .. S.key.indexOf('(')]]] ~= i;
 						in_[i]++;
@@ -250,8 +250,8 @@ template dependsOn(A, B) {
 	import std.string : startsWith;
 
 	enum prefix = quote(SQLName!A) ~ '(';
-	static foreach (j, _; B.tupleof)
-		static foreach (S; __traits(getAttributes, B.tupleof[j]))
+	static foreach (alias f; B.tupleof)
+		static foreach (S; __traits(getAttributes, f))
 			static if (!is(typeof(dependsOn) == bool) && is(typeof(S) == sqlkey))
 				static if (S.key.startsWith(prefix)) {
 					enum dependsOn = true;
