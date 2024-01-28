@@ -99,9 +99,10 @@ alias RCExSql = RefCounted!(ExpandedSql, RefCountedAutoInitialize.no);
 }
 
 enum EpochDateTime = DateTime(2000, 1, 1, 0, 0, 0);
+enum EpochStdTime = 630_822_816_000_000_000; //SysTime(EpochDateTime, UTC()).stdTime
 
 private enum canConvertToInt(T) = __traits(isIntegral, T) ||
-	is(T : Date) || is(T : DateTime) || is(T : Duration);
+	is(T : Date) || is(T : DateTime) || is(T : SysTime) || is(T : Duration);
 
 /// Represents a sqlite3 statement
 alias Statement = Query;
@@ -121,7 +122,8 @@ struct Query {
 		int rc = sqlite3_prepare_v2(db, sql.toz, -1, &stmt, null);
 		db.checkError!"Prepare failed: "(rc);
 		this.db = db;
-		set(args);
+		static if (A.length)
+			set(args);
 	}
 
 	this(this) {
@@ -129,8 +131,8 @@ struct Query {
 	}
 
 	~this() {
-		if(--_count == 0)
-		close();
+		if (--_count == 0)
+			close();
 	}
 
 	/// Close the statement
@@ -233,6 +235,8 @@ private:
 			return sqlite3_bind_int(stmt, pos, x.dayOfGregorianCal);
 		else static if (is(T : DateTime))
 			return sqlite3_bind_int64(stmt, pos, (x - EpochDateTime).total!"usecs");
+		else static if (is(T : SysTime))
+			return sqlite3_bind_int64(stmt, pos, x.stdTime - EpochStdTime);
 		else static if (is(T : Duration))
 			return sqlite3_bind_int64(stmt, pos, x.total!"usecs");
 		else static if (T.sizeof > 4)
@@ -259,6 +263,8 @@ private:
 				return Date(sqlite3_column_int(stmt, pos));
 			else static if (is(T : DateTime))
 				return EpochDateTime + dur!"usecs"(sqlite3_column_int64(stmt, pos));
+			else static if (is(T : SysTime))
+				return SysTime(sqlite3_column_int64(stmt, pos) + EpochStdTime);
 			else static if (is(T : Duration))
 				return dur!"usecs"(sqlite3_column_int64(stmt, pos));
 			else static if (T.sizeof > 4)
