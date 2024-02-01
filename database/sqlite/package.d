@@ -118,7 +118,7 @@ struct Query {
 	in (db)
 	in (sql.length) {
 		lastCode = -1;
-		_count = 1;
+		_rc = 1;
 		int rc = sqlite3_prepare_v2(db, sql.toz, -1, &stmt, null);
 		db.checkError!"Prepare failed: "(rc);
 		this.db = db;
@@ -127,11 +127,11 @@ struct Query {
 	}
 
 	this(this) {
-		_count++;
+		_rc++;
 	}
 
 	~this() {
-		if (--_count == 0)
+		if (--_rc == 0)
 			close();
 	}
 
@@ -212,13 +212,15 @@ struct Query {
 		return lastCode != SQLITE_ROW;
 	}
 
+	T opCast(T : bool)() => !empty; // @suppress(dscanner.suspicious.object_const)
+
 	/// Reset the statement, to step through the resulting rows again.
 	int reset()
 	in (stmt) => sqlite3_reset(stmt);
 
 private:
 	sqlite3* db;
-	size_t _count;
+	size_t _rc;
 
 	int bindArg(int pos, const char[] arg) {
 		static if (size_t.sizeof > 4)
