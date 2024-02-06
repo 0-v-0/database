@@ -209,7 +209,8 @@ struct SQLBuilder {
 private:
 	enum Clause(string name, prevStates...) =
 		"SB " ~ name ~ "(const(char)[] expr)" ~
-		(prevStates.length ? "in(state == State." ~ [prevStates].join!(string[])(
+		(prevStates.length ? "in(state == State." ~ [prevStates].join!(
+				string[])(
 				" || state == State.") ~ `, "Wrong SQL: ` ~ name ~ ` after " ~ state)` : "")
 		~ "{ sql ~= " ~ (__traits(hasMember, State, name) ?
 				"(state = State." ~ name ~ ")" : `" ` ~ name.toUpper ~ ` "`) ~ " ~ expr;
@@ -282,8 +283,6 @@ bool startsWithWhite(S)(S s)
 	=> s.length && s[0].isWhite;
 
 SB createTable(T)() {
-	import std.conv : to;
-
 	string s;
 	static foreach (A; __traits(getAttributes, T))
 		static if (is(typeof(A) : const(char)[]))
@@ -323,7 +322,7 @@ SB createTable(T)() {
 					field ~= type ~ constraints;
 					enum member = T.init.tupleof[I];
 					if (member != FIELDS[I].init)
-						field ~= " default " ~ quote(member.to!string, '\'');
+						field ~= " default " ~ toSQLValue(member);
 					fields ~= field;
 				}
 			}
@@ -333,6 +332,26 @@ SB createTable(T)() {
 
 	return SB(quote(SQLName!T) ~ '(' ~ join(fields ~ keys, ',') ~ ')'
 			~ s, State.createNX);
+}
+
+string toSQLValue(T)(T value) {
+	import database.sqlite,
+	std.datetime,
+	std.conv : to;
+
+	auto x = cast(OriginalType!(Unqual!T))value;
+	static if (__traits(isIntegral, T))
+		return to!string(cast(long)x);
+	else static if (is(T : Date))
+		return to!string(x.dayOfGregorianCal);
+	else static if (is(T : DateTime))
+		return to!string((x - EpochDateTime).total!"usecs");
+	else static if (is(T : SysTime))
+		return to!string(x.stdTime - EpochStdTime);
+	else static if (is(T : Duration))
+		return to!string(x.total!"usecs");
+	else
+		return quote(x.to!string, '\'');
 }
 
 package(database) alias SB = SQLBuilder;

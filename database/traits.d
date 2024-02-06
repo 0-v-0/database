@@ -36,6 +36,11 @@ enum {
 	unique = "unique"
 }
 
+version (DB_SQLite) {
+	enum noRowid = "WITHOUT ROWID";
+	enum serial = sqltype("INTEGER PRIMARY KEY AUTOINCREMENT");
+}
+
 /// Mark a field as the primary key or foreign key of the table
 struct sqlkey { // @suppress(dscanner.style.phobos_naming_convention)
 	string key;
@@ -125,7 +130,7 @@ template SQLTypeOf(T) {
 	} else static if (isBoolean!T)
 		enum SQLTypeOf = "BOOLEAN";
 	else static if (!isSomeString!T && !isScalarType!T) {
-		version (USE_PGSQL) {
+		version (DB_PGSQL) {
 			static if (is(T : Date))
 				enum SQLTypeOf = "date";
 			else static if (is(T : DateTime))
@@ -155,7 +160,7 @@ unittest {
 	static assert(SQLTypeOf!float == "REAL");
 	static assert(SQLTypeOf!double == "DOUBLE PRECISION");
 	static assert(SQLTypeOf!bool == "BOOLEAN");
-	version (USE_PGSQL) {
+	version (DB_PGSQL) {
 		static assert(SQLTypeOf!Date == "date");
 		static assert(SQLTypeOf!DateTime == "timestamp");
 		static assert(SQLTypeOf!SysTime == "timestamp with time zone");
