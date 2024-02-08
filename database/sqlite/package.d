@@ -339,7 +339,7 @@ struct SQLite3 {
 	/++ Create a SQLite3 from a database file. If file does not exist, the
 	  database will be initialized as new
 	 +/
-	this(string dbFile, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, int busyTimeout = 500) {
+	this(in char[] dbFile, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, int busyTimeout = 500) {
 		int rc = sqlite3_open_v2(dbFile.toz, &db, flags, null);
 		if (!rc)
 			sqlite3_busy_timeout(db, busyTimeout);
@@ -352,7 +352,7 @@ struct SQLite3 {
 	}
 
 	/// Execute multiple statements
-	int execSQL(string sql, out string errmsg) {
+	int execSQL(in char[] sql, out string errmsg) {
 		char* err_msg = void;
 		int rc = sqlite3_exec(db, sql.toz, null, null, &err_msg);
 		errmsg = err_msg.toStr;
@@ -360,7 +360,7 @@ struct SQLite3 {
 	}
 
 	/// Execute an sql statement directly, binding the args to it
-	bool exec(A...)(string sql, auto ref A args) {
+	bool exec(A...)(in char[] sql, auto ref A args) {
 		auto q = query(sql, args);
 		q.step();
 		return q.lastCode == SQLITE_DONE || q.lastCode == SQLITE_ROW;
@@ -374,7 +374,7 @@ struct SQLite3 {
 	}
 
 	/// Return 'true' if database contains the given table
-	bool hasTable(string table) => query(
+	bool hasTable(in char[] table) => query(
 		"SELECT name FROM sqlite_master WHERE type='table' AND name=?",
 		table).step();
 

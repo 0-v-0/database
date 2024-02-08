@@ -177,7 +177,7 @@ private:
 				if (Clock.currTime - start >= _waitTime)
 					break;
 
-				Thread.sleep(100.msecs);
+				Thread.sleep(50.msecs);
 			}
 
 			req.tid.send(ConnectionBusy);
