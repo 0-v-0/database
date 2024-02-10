@@ -41,15 +41,27 @@ enum OR {
 @safe:
 
 string placeholders(size_t x) pure nothrow {
-	import std.conv : to;
+	import std.array;
 
 	if (!x)
 		return "";
 
-	auto s = "$1";
-	foreach (i; 2 .. x + 1)
-		s ~= ",$" ~ i.to!string;
-	return s;
+	auto s = appender!string;
+	placeholders(x, s);
+	return s[];
+}
+
+void placeholders(R)(size_t x, ref scope R s) {
+	import std.conv : to;
+
+	if (!x)
+		return;
+
+	s.put("$1");
+	foreach (i; 2 .. x + 1) {
+		s.put(",$");
+		s.put(i.to!string);
+	}
 }
 
 /** An instance of a query building process */

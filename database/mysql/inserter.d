@@ -314,6 +314,6 @@ private:
 	}
 
 	string placeholders(T)(T x, bool parens = true)
-	if (is(typeof(() { auto y = x.length; })))
+	if (is(typeof(() { size_t y = x.length; })))
 		=> x.length.placeholders(parens);
 }
