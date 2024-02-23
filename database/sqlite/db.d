@@ -94,16 +94,29 @@ struct SQLite3DB {
 		assert(db.selectRow!User(2).age == 91);
 	}
 
-	int insert(OR or = OR.None, T)(T row) {
+	int insert(OR or = OR.None, alias filter = skipRowid, T)(T row) {
 		if (autoCreateTable && !hasTable(SQLName!T)) {
 			if (!create!T)
 				return 0;
 		}
-		db.insert!or(row).step();
+		db.insert!(or, filter)(row).step();
 		return db.changes;
 	}
 
-	int replaceInto(T)(T s) => insert!(OR.Replace, T)(s);
+	int insert(T, string fields = "", OR or = OR.None, A...)(A args) {
+		import std.array : split;
+
+		if (autoCreateTable && !hasTable(SQLName!T)) {
+			if (!create!T)
+				return 0;
+		}
+		enum f = quoteJoin(fields.split(','));
+		enum sql = SB.insert!or(SQLName!T) ~ (f.length ?
+					'(' ~ f ~ ")VALUES(" ~ placeholders(f.length) ~ ')' : "");
+		return db.exec(sql, args);
+	}
+
+	int replaceInto(alias filter = skipRowid, T)(T s) => insert!(OR.Replace, filter, T)(s);
 
 	int delWhere(T, string expr, A...)(auto ref A args) if (expr.length) {
 		query(SB.del!T.where(expr), args).step();

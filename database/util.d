@@ -46,6 +46,7 @@ CharClass classify(char ch) pure {
 }
 
 public:
+/// Convert a string to snake_case
 S snakeCase(S)(S input, char sep = '_') {
 	if (!input.length)
 		return "";
@@ -101,6 +102,7 @@ unittest {
 	test("coverImageURL", "cover_image_url");
 }
 
+/// Convert a string to camelCase
 S camelCase(S, bool upper = false)(in S input, char sep = '_') {
 	S output;
 	bool upcaseNext = upper;
@@ -117,10 +119,11 @@ S camelCase(S, bool upper = false)(in S input, char sep = '_') {
 	return output;
 }
 
+/// Convert a string to PascalCase
 S pascalCase(S)(in S input, char sep = '_')
 	=> camelCase!(S, true)(input, sep);
 
-unittest {
+@safe unittest {
 	assert("c".camelCase == "c");
 	assert("c".pascalCase == "C");
 	assert("c_a".camelCase == "cA");
@@ -137,11 +140,27 @@ unittest {
 	assert("http_response_code_xyz".pascalCase == "HttpResponseCodeXyz");
 }
 
+/// quote a string for SQL
 S quote(S)(S s, char q = '"') if (isSomeString!S) {
+	import std.algorithm;
+
 	version (NO_SQLQUOTE)
 		return s;
-	else
+	else {
+		if (s.canFind(q))
+			s = s.replace([q], [q, q]);
+		if (q == '"' && s.canFind('.'))
+			s = s.replace(".", `"."`);
 		return q ~ s ~ q;
+	}
+}
+
+@safe unittest {
+	assert("a".quote == `"a"`);
+	assert("a".quote('"') == `"a"`);
+	assert("a".quote('\'') == `'a'`);
+	assert("a.b".quote == `"a"."b"`);
+	assert(`a"`.quote == `"a"""`);
 }
 
 S quoteJoin(S, bool leaveTail = false)(S[] s, char sep = ',', char q = '"')
@@ -161,6 +180,13 @@ if (isSomeString!S) {
 			res ~= sep;
 	}
 	return res[];
+}
+
+@safe unittest {
+	assert(quoteJoin([]) == "");
+	assert(["a", "b"].quoteJoin == `"a","b"`);
+	assert(["a", "b"].quoteJoin(',') == `"a","b"`);
+	assert(["a", "b"].quoteJoin(',', '\'') == `'a','b'`);
 }
 
 T parse(T)(inout(char)[] data) if (isIntegral!T)

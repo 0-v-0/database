@@ -86,14 +86,23 @@ struct SQLBuilder {
 		static assert(!__traits(compiles, SQLBuilder.create!int));
 	}
 
-	alias insert(T) = insert!(OR.None, T);
+	///
+	static SB insert(OR or = OR.None, S:
+		const(char)[])(S table)
+		=> SB(or ~ quote(table), State.insert);
 
-	static SB insert(OR or = OR.None, T)() if (isAggregateType!T)
-		=> SB(make!(or ~ "INTO " ~ quote(SQLName!T) ~ '(',
-				")VALUES(" ~ placeholders(ColumnCount!T) ~ ')', T), State.insert);
+	alias insert(T, alias filter = skipRowid) = insert!(OR.None, filter, T);
+
+	static SB insert(OR or = OR.None, alias filter = skipRowid, T)()
+	if (isAggregateType!T) {
+		mixin make!(or ~ "INTO " ~ quote(SQLName!T) ~ '(', ")VALUES(", filter, T);
+		return SB(make ~ placeholders(sqlFields.length) ~ ')', State.insert);
+	}
 
 	///
 	unittest {
+		assert(SQLBuilder.insert("User") == `INSERT INTO "User"`);
+		assert(SQLBuilder.insert!(OR.Ignore, User) == `INSERT OR IGNORE INTO "User"`);
 		assert(SQLBuilder.insert!User == `INSERT INTO "User"("name","age")VALUES($1,$2)`);
 		assert(SQLBuilder.insert!Message == `INSERT INTO "msg"("contents")VALUES($1)`);
 	}
@@ -101,7 +110,7 @@ struct SQLBuilder {
 	///
 	static SB select(Fields...)() if (Fields.length) {
 		static if (allSatisfy!(isString, Fields)) {
-			enum sql = [Fields].join(',');
+			enum sql = quoteJoin([Fields]);
 			return SB(sql, State.select);
 		} else {
 			enum sql = quoteJoin([staticMap!(SQLName, Fields)]);
@@ -111,8 +120,8 @@ struct SQLBuilder {
 
 	///
 	unittest {
-		assert(SQLBuilder.select!("only_one") == "SELECT only_one");
-		assert(SQLBuilder.select!("hey", "you") == "SELECT hey,you");
+		assert(SQLBuilder.select!("only_one") == `SELECT "only_one"`);
+		assert(SQLBuilder.select!("hey", "you") == `SELECT "hey","you"`);
 		assert(SQLBuilder.select!(User.name) == `SELECT "name" FROM "User"`);
 		assert(SQLBuilder.select!(User.name, User.age) == `SELECT "name","age" FROM "User"`);
 	}
@@ -151,6 +160,12 @@ struct SQLBuilder {
 		=> from(quoteJoin([staticMap!(SQLName, Tables)]));
 
 	///
+	SB from()(SB subquery) {
+		sql ~= (state = State.from) ~ '(' ~ subquery.sql ~ ')';
+		return this;
+	}
+
+	///
 	mixin(Clause!("set", "update"));
 
 	///
@@ -163,8 +178,9 @@ struct SQLBuilder {
 		=> SB(or ~ quote(SQLName!T), State.update);
 
 	///
-	static SB updateAll(T, OR or = OR.None)() if (isAggregateType!T)
-		=> SB(make!("UPDATE " ~ or ~ quote(SQLName!T) ~ " SET ", "=?", T), State.set);
+	static SB updateAll(T, OR or = OR.None, alias filter = skipRowid)()
+	if (isAggregateType!T)
+		=> SB(make!("UPDATE " ~ or ~ quote(SQLName!T) ~ " SET ", "=?", filter, T), State.set);
 
 	///
 	unittest {
@@ -228,8 +244,9 @@ private:
 				"(state = State." ~ name ~ ")" : `" ` ~ name.toUpper ~ ` "`) ~ " ~ expr;
 		return this;}";
 
-	template make(string prefix, string suffix, T) if (isAggregateType!T) {
-		mixin getSQLFields!(prefix, suffix, T);
+	template make(string prefix, string suffix, alias filter, T)
+	if (isAggregateType!T) {
+		mixin getSQLFields!(prefix, suffix, filter, T);
 		enum make = sql!sqlFields;
 	}
 }
@@ -317,9 +334,16 @@ SB createTable(T)() {
 				}
 				static foreach (A; __traits(getAttributes, T.tupleof[I]))
 					static if (is(typeof(A) == sqlkey)) {
-						static if (A.key.length)
-							keys ~= "FOREIGN KEY(" ~ quote(colName) ~ ") REFERENCES " ~ A.key;
-						else
+						static if (A.key.length) {
+							{
+								enum key = "FOREIGN KEY(" ~ quote(colName)
+									~ ") REFERENCES " ~ A.key;
+								version (DB_SQLite)
+									keys ~= key ~ " ON DELETE CASCADE";
+								else
+									keys ~= key;
+							}
+						} else
 							pkeys ~= colName;
 					} else static if (colName != "rowid" && is(typeof(A) == sqltype))
 						type = A.type;

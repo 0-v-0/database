@@ -28,7 +28,7 @@ enum ignore; // @suppress(dscanner.style.phobos_naming_convention)
 enum optional; // @suppress(dscanner.style.phobos_naming_convention)
 
 enum {
-	default0 = "default '0'",
+	default0 = "default 0",
 
 	notnull = "not null",
 
@@ -145,7 +145,7 @@ template SQLTypeOf(T) {
 				enum SQLTypeOf = "bytea";
 		} else static if (is(T : Date))
 			enum SQLTypeOf = "INT";
-		else static if (is(T : DateTime) || is(T : Duration))
+		else static if (is(T : DateTime) || is(T : Duration) || is(T : SysTime))
 			enum SQLTypeOf = "BIGINT";
 		else
 			enum SQLTypeOf = "BLOB";
@@ -170,6 +170,7 @@ unittest {
 	} else {
 		static assert(SQLTypeOf!Date == "INT");
 		static assert(SQLTypeOf!DateTime == "BIGINT");
+		static assert(SQLTypeOf!SysTime == "BIGINT");
 		static assert(SQLTypeOf!Duration == "BIGINT");
 		static assert(SQLTypeOf!(ubyte[]) == "BLOB");
 	}
@@ -275,7 +276,14 @@ package(database):
 
 enum ParentName(alias field) = quote(SQLName!(__traits(parent, field)));
 
-alias CutOut(size_t I, T...) = AliasSeq!(T[0 .. I], T[I + 1 .. $]);
+template FilterIndex(alias pred, args...) {
+	alias FilterIndex = AliasSeq!();
+	static foreach (i, arg; args)
+		static if (pred!arg)
+			FilterIndex = AliasSeq!(FilterIndex, i);
+}
+
+enum skipRowid(string name) = name != "rowid";
 
 string putPlaceholders(string[] s) {
 	import std.conv : to;
@@ -297,16 +305,16 @@ string putPlaceholders(string[] s) {
 	return res[];
 }
 
-template getSQLFields(string prefix, string suffix, T) {
+@safe unittest {
+	assert(putPlaceholders([]) == "");
+	assert(putPlaceholders(["a", "b", "c"]) == `"a"=$1,"b"=$2,"c"=$3`);
+}
+
+template getSQLFields(string prefix, string suffix, alias filter, T) {
 	import std.meta;
 
-	enum colNames = ColumnNames!T,
-		I = staticIndexOf!("rowid", colNames),
-		sql(S...) = prefix ~ (suffix == "=?" ?
+	enum sql(S...) = prefix ~ (suffix == "=?" ?
 				putPlaceholders([S]) : quoteJoin([S]) ~ suffix);
-	// Skips "rowid" field
-	static if (I >= 0)
-		enum sqlFields = CutOut!(I, colNames);
-	else
-		enum sqlFields = colNames;
+	// filter the field
+	enum sqlFields = Filter!(filter, ColumnNames!T);
 }

@@ -35,9 +35,9 @@ struct PgSQLDB {
 		return true;
 	}
 
-	ulong insert(OR or = OR.None, T)(T s) if (isAggregateType!T) {
+	ulong insert(OR or = OR.None, alias filter = skipRowid, T)(T s) if (isAggregateType!T) {
 		mixin getSQLFields!(or ~ "INTO " ~ quote(SQLName!T) ~ '(',
-			")VALUES(" ~ placeholders(ColumnCount!T) ~ ')', T);
+			")VALUES(" ~ placeholders(ColumnCount!T) ~ ')', filter, T);
 
 		enum sql = SB(sql!colNames, State.insert);
 		return exec(sql, s.tupleof);
