@@ -110,7 +110,7 @@ struct SQLBuilder {
 	///
 	static SB select(Fields...)() if (Fields.length) {
 		static if (allSatisfy!(isString, Fields)) {
-			enum sql = quoteJoin([Fields]);
+			enum sql = [Fields].join(',');
 			return SB(sql, State.select);
 		} else {
 			enum sql = quoteJoin([staticMap!(SQLName, Fields)]);
@@ -120,8 +120,8 @@ struct SQLBuilder {
 
 	///
 	unittest {
-		assert(SQLBuilder.select!("only_one") == `SELECT "only_one"`);
-		assert(SQLBuilder.select!("hey", "you") == `SELECT "hey","you"`);
+		assert(SQLBuilder.select!("only_one") == `SELECT only_one`);
+		assert(SQLBuilder.select!("hey", "you") == `SELECT hey,you`);
 		assert(SQLBuilder.select!(User.name) == `SELECT "name" FROM "User"`);
 		assert(SQLBuilder.select!(User.name, User.age) == `SELECT "name","age" FROM "User"`);
 	}
