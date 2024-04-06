@@ -371,8 +371,7 @@ SB createTable(T)() {
 }
 
 string toSQLValue(T)(T value) {
-	import database.sqlite,
-	std.datetime,
+	import std.datetime,
 	std.conv : to;
 
 	auto x = cast(OriginalType!(Unqual!T))value;
@@ -380,14 +379,21 @@ string toSQLValue(T)(T value) {
 		return to!string(cast(long)x);
 	else static if (is(T : Date))
 		return to!string(x.dayOfGregorianCal);
-	else static if (is(T : DateTime))
-		return to!string((x - EpochDateTime).total!"usecs");
-	else static if (is(T : SysTime))
-		return to!string(x.stdTime - EpochStdTime);
 	else static if (is(T : Duration))
 		return to!string(x.total!"usecs");
-	else
-		return quote(x.to!string, '\'');
+	else {
+		version (DB_SQLite) {
+			import database.sqlite;
+
+			static if (is(T : DateTime))
+				return to!string((x - EpochDateTime).total!"usecs");
+			else static if (is(T : SysTime))
+				return to!string(x.stdTime - EpochStdTime);
+			else
+				return quote(x.to!string, '\'');
+		} else
+			return quote(x.to!string, '\'');
+	}
 }
 
 package(database) alias SB = SQLBuilder;
