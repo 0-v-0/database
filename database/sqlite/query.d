@@ -30,7 +30,7 @@ struct Query {
 	in (sql.length <= int.max) {
 		lastCode = -1;
 		_rc = 1;
-		int rc = sqlite3_prepare_v2(db, sql.ptr, cast(int)sql.length, &stmt, null);
+		const rc = sqlite3_prepare_v2(db, sql.ptr, cast(int)sql.length, &stmt, null);
 		db.checkError!"Prepare failed: "(rc);
 		this.db = db;
 		static if (A.length)

@@ -90,7 +90,7 @@ struct SQLite3 {
 	  database will be initialized as new
 	 +/
 	this(in char[] dbFile, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, int busyTimeout = 500) {
-		int rc = sqlite3_open_v2(dbFile.toz, &db, flags, null);
+		const rc = sqlite3_open_v2(dbFile.toz, &db, flags, null);
 		if (!rc)
 			sqlite3_busy_timeout(db, busyTimeout);
 		if (rc != SQLITE_OK) {
@@ -102,9 +102,9 @@ struct SQLite3 {
 	}
 
 	/// Execute multiple statements
-	int execSQL(in char[] sql, out string errmsg) {
+	int execSQL(in char[] sql, out string errmsg) @trusted {
 		char* err_msg = void;
-		int rc = sqlite3_exec(db, sql.toz, null, null, &err_msg);
+		const rc = sqlite3_exec(db, sql.toz, null, null, &err_msg);
 		errmsg = err_msg.toStr;
 		return rc;
 	}
