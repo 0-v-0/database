@@ -27,10 +27,10 @@ struct Query {
 	/// Construct a query from the string 'sql' into database 'db'
 	this(A...)(sqlite3* db, in char[] sql, auto ref A args)
 	in (db)
-	in (sql.length) {
+	in (sql.length <= int.max) {
 		lastCode = -1;
 		_rc = 1;
-		int rc = sqlite3_prepare_v2(db, sql.toz, -1, &stmt, null);
+		int rc = sqlite3_prepare_v2(db, sql.ptr, cast(int)sql.length, &stmt, null);
 		db.checkError!"Prepare failed: "(rc);
 		this.db = db;
 		static if (A.length)
@@ -61,15 +61,28 @@ struct Query {
 	int clear()
 	in (stmt) => sqlite3_clear_bindings(stmt);
 
-	// Find column by name
-	int findColumn(string name)
+	/// Find column by name
+	int findColumn(in char[] name)
 	in (stmt) {
 		import core.stdc.string : strcmp;
 
 		auto ptr = name.toz;
-		int count = sqlite3_column_count(stmt);
+		const count = sqlite3_column_count(stmt);
 		for (int i = 0; i < count; i++) {
 			if (strcmp(sqlite3_column_name(stmt, i), ptr) == 0)
+				return i;
+		}
+		return -1;
+	}
+
+	/// ditto
+	int findColumn(scope const char* namez)
+	in (stmt) {
+		import core.stdc.string : strcmp;
+
+		const count = sqlite3_column_count(stmt);
+		for (int i = 0; i < count; i++) {
+			if (strcmp(sqlite3_column_name(stmt, i), namez) == 0)
 				return i;
 		}
 		return -1;
@@ -80,11 +93,11 @@ struct Query {
 	alias popFront = step;
 
 	/// Get current row (and column) as a basic type
-	T get(T, int COL = 0)() if (!isAggregateType!T)
+	T get(T, int column = 0)() if (!isAggregateType!T)
 	in (stmt) {
 		if (lastCode == -1)
 			step();
-		return getArg!T(COL);
+		return getArg!T(column);
 	}
 
 	/// Map current row to the fields of the given T
@@ -95,7 +108,7 @@ struct Query {
 		T t;
 		int i = void;
 		foreach (N; FieldNameTuple!T) {
-			i = findColumn(ColumnName!(T, N));
+			i = findColumn(ColumnName!(T, N).ptr);
 			if (i >= 0)
 				__traits(getMember, t, N) = getArg!(typeof(__traits(getMember, t, N)))(i);
 		}
