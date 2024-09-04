@@ -89,12 +89,16 @@ struct SQLBuilder {
 	///
 	static SB insert(OR or = OR.None, S:
 		const(char)[])(S table)
-		=> SB(or ~ quote(table), State.insert);
+		=> SB(or ~ "INTO " ~ quote(table), State.insert);
+
+	///
+	static SB insert(OR or = OR.None, T)()
+		=> SB(or ~ "INTO " ~ quote(SQLName!T), State.insert);
 
 	alias insert(T, alias filter = skipRowid) = insert!(OR.None, filter, T);
 
 	static SB insert(OR or = OR.None, alias filter = skipRowid, T)()
-	if (isAggregateType!T) {
+	if (isAggregateType!T && __traits(isTemplate, filter)) {
 		mixin make!(or ~ "INTO " ~ quote(SQLName!T) ~ '(', ")VALUES(", filter, T);
 		return SB(make ~ placeholders(sqlFields.length) ~ ')', State.insert);
 	}
@@ -102,7 +106,7 @@ struct SQLBuilder {
 	///
 	unittest {
 		assert(SQLBuilder.insert("User") == `INSERT INTO "User"`);
-		assert(SQLBuilder.insert!(OR.Ignore, User) == `INSERT OR IGNORE INTO "User"`);
+		assert(SQLBuilder.insert!(OR.Ignore, User) == `INSERT OR IGNORE INTO "User"`, SQLBuilder.insert!(OR.Ignore, skipRowid, User));
 		assert(SQLBuilder.insert!User == `INSERT INTO "User"("name","age")VALUES($1,$2)`);
 		assert(SQLBuilder.insert!Message == `INSERT INTO "msg"("contents")VALUES($1)`);
 	}
@@ -124,6 +128,9 @@ struct SQLBuilder {
 		assert(SQLBuilder.select!("hey", "you") == `SELECT hey,you`);
 		assert(SQLBuilder.select!(User.name) == `SELECT "name" FROM "User"`);
 		assert(SQLBuilder.select!(User.name, User.age) == `SELECT "name","age" FROM "User"`);
+		with (User) {
+			assert(SQLBuilder.select!(name, age) == `SELECT "name","age" FROM "User"`);
+		}
 	}
 
 	///
@@ -280,7 +287,7 @@ unittest {
 	assert(SB.create!Message == `CREATE TABLE IF NOT EXISTS "msg"("contents" TEXT)`);
 
 	auto q2 = SB.insert!Message;
-	assert(q2 == `INSERT INTO "msg"("contents") VALUES($1)`);
+	assert(q2 == `INSERT INTO "msg"("contents")VALUES($1)`);
 }
 
 unittest {

@@ -285,7 +285,7 @@ template FilterIndex(alias pred, args...) {
 
 enum skipRowid(string name) = name != "rowid";
 
-string putPlaceholders(string[] s) {
+string putPlaceholders(string[] s) @safe {
 	import std.conv : to;
 
 	string res;

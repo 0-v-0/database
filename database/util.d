@@ -183,7 +183,7 @@ if (isSomeString!S) {
 }
 
 @safe unittest {
-	assert(quoteJoin([]) == "");
+	assert(quoteJoin!string([]) == "");
 	assert(["a", "b"].quoteJoin == `"a","b"`);
 	assert(["a", "b"].quoteJoin(',') == `"a","b"`);
 	assert(["a", "b"].quoteJoin(',', '\'') == `'a','b'`);
