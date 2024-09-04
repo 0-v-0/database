@@ -171,7 +171,7 @@ struct SQLite3 {
 
 		enum qms = ",?".replicate(ColumnCount!T);
 		return make!(State.insert, or ~ "INTO " ~
-				quote(SQLName!T) ~ '(', ") VALUES(" ~
+				identifier(SQLName!T) ~ '(', ") VALUES(" ~
 				(qms.length ? qms[1 .. $] : qms) ~ ')', filter)(s);
 	}
 

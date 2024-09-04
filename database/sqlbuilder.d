@@ -82,24 +82,24 @@ struct SQLBuilder {
 
 	///
 	unittest {
-		assert(SQLBuilder.create!User == `CREATE TABLE IF NOT EXISTS "User"("name" TEXT,"age" INT)`);
+		assert(SQLBuilder.create!User == `CREATE TABLE IF NOT EXISTS "User"(name TEXT,age INT)`);
 		static assert(!__traits(compiles, SQLBuilder.create!int));
 	}
 
 	///
 	static SB insert(OR or = OR.None, S:
 		const(char)[])(S table)
-		=> SB(or ~ "INTO " ~ quote(table), State.insert);
+		=> SB(or ~ "INTO " ~ identifier(table), State.insert);
 
 	///
 	static SB insert(OR or = OR.None, T)()
-		=> SB(or ~ "INTO " ~ quote(SQLName!T), State.insert);
+		=> SB(or ~ "INTO " ~ identifier(SQLName!T), State.insert);
 
 	alias insert(T, alias filter = skipRowid) = insert!(OR.None, filter, T);
 
 	static SB insert(OR or = OR.None, alias filter = skipRowid, T)()
 	if (isAggregateType!T && __traits(isTemplate, filter)) {
-		mixin make!(or ~ "INTO " ~ quote(SQLName!T) ~ '(', ")VALUES(", filter, T);
+		mixin make!(or ~ "INTO " ~ identifier(SQLName!T) ~ '(', ")VALUES(", filter, T);
 		return SB(make ~ placeholders(sqlFields.length) ~ ')', State.insert);
 	}
 
@@ -107,8 +107,8 @@ struct SQLBuilder {
 	unittest {
 		assert(SQLBuilder.insert("User") == `INSERT INTO "User"`);
 		assert(SQLBuilder.insert!(OR.Ignore, User) == `INSERT OR IGNORE INTO "User"`, SQLBuilder.insert!(OR.Ignore, skipRowid, User));
-		assert(SQLBuilder.insert!User == `INSERT INTO "User"("name","age")VALUES($1,$2)`);
-		assert(SQLBuilder.insert!Message == `INSERT INTO "msg"("contents")VALUES($1)`);
+		assert(SQLBuilder.insert!User == `INSERT INTO "User"(name,age)VALUES($1,$2)`);
+		assert(SQLBuilder.insert!Message == `INSERT INTO msg(contents)VALUES($1)`);
 	}
 
 	///
@@ -126,10 +126,10 @@ struct SQLBuilder {
 	unittest {
 		assert(SQLBuilder.select!("only_one") == `SELECT only_one`);
 		assert(SQLBuilder.select!("hey", "you") == `SELECT hey,you`);
-		assert(SQLBuilder.select!(User.name) == `SELECT "name" FROM "User"`);
-		assert(SQLBuilder.select!(User.name, User.age) == `SELECT "name","age" FROM "User"`);
+		assert(SQLBuilder.select!(User.name) == `SELECT name FROM "User"`);
+		assert(SQLBuilder.select!(User.name, User.age) == `SELECT name,age FROM "User"`);
 		with (User) {
-			assert(SQLBuilder.select!(name, age) == `SELECT "name","age" FROM "User"`);
+			assert(SQLBuilder.select!(name, age) == `SELECT name,age FROM "User"`);
 		}
 	}
 
@@ -140,7 +140,7 @@ struct SQLBuilder {
 			{
 				enum tblName = SQLName!S;
 				foreach (N; FieldNameTuple!S)
-					fields ~= tblName.quote ~ '.' ~ ColumnName!(S, N).quote;
+					fields ~= identifier(tblName) ~ '.' ~ identifier(ColumnName!(S, N));
 
 				tables ~= tblName;
 			}
@@ -151,7 +151,7 @@ struct SQLBuilder {
 	///
 	unittest {
 		assert(SQLBuilder.selectAllFrom!(Message, User) ==
-				`SELECT "msg"."rowid","msg"."contents","User"."name","User"."age" FROM "msg","User"`);
+				`SELECT msg.rowid,msg.contents,"User".name,"User".age FROM msg,"User"`);
 	}
 
 	///
@@ -178,22 +178,22 @@ struct SQLBuilder {
 	///
 	static SB update(OR or = OR.None, S:
 		const(char)[])(S table)
-		=> SB(or ~ table, State.update);
+		=> SB(or ~ identifier(table), State.update);
 
 	///
 	static SB update(T, OR or = OR.None)() if (isAggregateType!T)
-		=> SB(or ~ quote(SQLName!T), State.update);
+		=> SB(or ~ identifier(SQLName!T), State.update);
 
 	///
 	static SB updateAll(T, OR or = OR.None, alias filter = skipRowid)()
 	if (isAggregateType!T)
-		=> SB(make!("UPDATE " ~ or ~ quote(SQLName!T) ~ " SET ", "=?", filter, T), State.set);
+		=> SB(make!("UPDATE " ~ or ~ identifier(SQLName!T) ~ " SET ", "=?", filter, T), State.set);
 
 	///
 	unittest {
-		assert(SQLBuilder.update("User") == `UPDATE User`);
+		assert(SQLBuilder.update("User") == `UPDATE "User"`);
 		assert(SQLBuilder.update!User == `UPDATE "User"`);
-		assert(SQLBuilder.updateAll!User == `UPDATE "User" SET "name"=$1,"age"=$2`);
+		assert(SQLBuilder.updateAll!User == `UPDATE "User" SET name=$1,age=$2`);
 	}
 
 	///
@@ -201,7 +201,7 @@ struct SQLBuilder {
 
 	///
 	static SB del(Table)() if (isAggregateType!Table)
-		=> del(quote(SQLName!Table));
+		=> del(identifier(SQLName!Table));
 
 	///
 	static SB del(string table)
@@ -266,7 +266,7 @@ unittest {
 		int age;
 	}
 
-	assert(SB.create!User == `CREATE TABLE IF NOT EXISTS "User"("name" TEXT,"age" INT)`);
+	assert(SB.create!User == `CREATE TABLE IF NOT EXISTS "User"(name TEXT,age INT)`);
 
 	auto q = SB.select!"name"
 		.from!User
@@ -284,10 +284,10 @@ unittest {
 	// Note that virtual "rowid" field is handled differently -- it will not be created
 	// by create(), and not inserted into by insert()
 
-	assert(SB.create!Message == `CREATE TABLE IF NOT EXISTS "msg"("contents" TEXT)`);
+	assert(SB.create!Message == `CREATE TABLE IF NOT EXISTS msg(contents TEXT)`);
 
 	auto q2 = SB.insert!Message;
-	assert(q2 == `INSERT INTO "msg"("contents")VALUES($1)`);
+	assert(q2 == `INSERT INTO msg(contents)VALUES($1)`);
 }
 
 unittest {
@@ -298,15 +298,15 @@ unittest {
 
 	// Make sure all these generate the same sql statement
 	auto sql = [
-		SB.select!(`"msg"."rowid"`, `"msg"."contents"`).from(`"msg"`)
-			.where(`"msg"."rowid"=$1`).sql,
-		SB.select!(`"msg"."rowid"`, `"msg"."contents"`)
+		SB.select!(`msg.rowid`, `msg.contents`).from(`msg`)
+			.where(`msg.rowid=$1`).sql,
+		SB.select!(`msg.rowid`, `msg.contents`)
 			.from!Message
 			.where(C!(Message.id) ~ "=$1").sql,
 		SB.select!(C!(Message.id), C!(Message.contents))
 			.from!Message
-			.where(`"msg"."rowid"=$1`).sql,
-		SB.selectAllFrom!Message.where(`"msg"."rowid"=$1`).sql
+			.where(`msg.rowid=$1`).sql,
+		SB.selectAllFrom!Message.where(`msg.rowid=$1`).sql
 	];
 	assert(count(uniq(sql)) == 1);
 }
@@ -335,7 +335,7 @@ SB createTable(T)() {
 		static if (colName.length) {
 			{
 				static if (colName != "rowid") {
-					string field = quote(colName) ~ ' ',
+					string field = identifier(colName) ~ ' ',
 					type = SQLTypeOf!(FIELDS[I]),
 					constraints;
 				}
@@ -343,7 +343,7 @@ SB createTable(T)() {
 					static if (is(typeof(A) == sqlkey)) {
 						static if (A.key.length) {
 							{
-								enum key = "FOREIGN KEY(" ~ quote(colName)
+								enum key = "FOREIGN KEY(" ~ identifier(colName)
 									~ ") REFERENCES " ~ A.key;
 								version (DB_SQLite)
 									keys ~= key ~ " ON DELETE CASCADE";
@@ -373,7 +373,7 @@ SB createTable(T)() {
 	if (pkeys.length)
 		keys ~= "PRIMARY KEY(" ~ quoteJoin(pkeys) ~ ')';
 
-	return SB(quote(SQLName!T) ~ '(' ~ join(fields ~ keys, ',') ~ ')'
+	return SB(identifier(SQLName!T) ~ '(' ~ join(fields ~ keys, ',') ~ ')'
 			~ s, State.createNX);
 }
 
@@ -397,9 +397,9 @@ string toSQLValue(T)(T value) {
 			else static if (is(T : SysTime))
 				return to!string(x.stdTime - EpochStdTime);
 			else
-				return quote(x.to!string, '\'');
+				return quote(x.to!string);
 		} else
-			return quote(x.to!string, '\'');
+			return quote(x.to!string);
 	}
 }
 

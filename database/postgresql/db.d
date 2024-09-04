@@ -36,7 +36,7 @@ struct PgSQLDB {
 	}
 
 	ulong insert(OR or = OR.None, alias filter = skipRowid, T)(T s) if (isAggregateType!T) {
-		mixin getSQLFields!(or ~ "INTO " ~ quote(SQLName!T) ~ '(',
+		mixin getSQLFields!(or ~ "INTO " ~ identifier(SQLName!T) ~ '(',
 			")VALUES(" ~ placeholders(ColumnCount!T) ~ ')', filter, T);
 
 		enum sql = SB(sql!colNames, State.insert);
@@ -65,7 +65,7 @@ struct PgSQLDB {
 		=> !query("select 1 from pg_class where relname = $1", table).empty;
 
 	bool hasTable(T)() if (isAggregateType!T) {
-		enum sql = "select 1 from pg_class where relname = " ~ quote(SQLName!T);
+		enum sql = "select 1 from pg_class where relname = " ~ identifier(SQLName!T);
 		return !query(sql).empty;
 	}
 

@@ -83,7 +83,8 @@ template ColumnName(T, string field) if (isAggregateType!T) {
 
 /// Return the qualifed column name of the given struct field
 enum ColumnName(alias field, bool brackets = false) =
-	ParentName!field ~ (brackets ? '(' ~ quote(SQLName!field) ~ ')' : '.' ~ quote(SQLName!field));
+	ParentName!field ~ (brackets ? '(' ~ identifier(
+			SQLName!field) ~ ')' : '.' ~ identifier(SQLName!field));
 
 ///
 unittest {
@@ -92,9 +93,9 @@ unittest {
 	}
 
 	static assert(ColumnName!(User, "age") == "age");
-	static assert(ColumnName!(Message.contents) == `"msg"."txt"`);
-	static assert(ColumnName!(User.age) == `"User"."age"`);
-	static assert(ColumnName!(User.age, true) == `"User"("age")`);
+	static assert(ColumnName!(Message.contents) == `msg.txt`);
+	static assert(ColumnName!(User.age) == `"User".age`);
+	static assert(ColumnName!(User.age, true) == `"User"(age)`);
 }
 
 template ColumnNames(T) {
@@ -224,7 +225,7 @@ template sortTable(T...) if (T.length <= uint.max) {
 
 		uint[string] nameToIndex;
 		foreach (i, Table; T)
-			nameToIndex[quote(SQLName!Table)] = i;
+			nameToIndex[identifier(SQLName!Table)] = i;
 		uint[][N] g;
 		uint[N] in_;
 		foreach (i, Table; T) {
@@ -255,7 +256,7 @@ template sortTable(T...) if (T.length <= uint.max) {
 template dependsOn(A, B) {
 	import std.string : startsWith;
 
-	enum prefix = quote(SQLName!A) ~ '(';
+	enum prefix = identifier(SQLName!A) ~ '(';
 	static foreach (alias f; B.tupleof)
 		static foreach (S; __traits(getAttributes, f))
 			static if (!is(typeof(dependsOn) == bool) && is(typeof(S) == sqlkey))
@@ -274,7 +275,7 @@ enum fitsInString(T) =
 
 package(database):
 
-enum ParentName(alias field) = quote(SQLName!(__traits(parent, field)));
+enum ParentName(alias field) = identifier(SQLName!(__traits(parent, field)));
 
 template FilterIndex(alias pred, args...) {
 	alias FilterIndex = AliasSeq!();
@@ -290,13 +291,7 @@ string putPlaceholders(string[] s) @safe {
 
 	string res;
 	for (size_t i; i < s.length;) {
-		version (NO_SQLQUOTE)
-			res ~= s[i];
-		else {
-			res ~= '"';
-			res ~= s[i];
-			res ~= '"';
-		}
+		res ~= identifier(s[i]);
 		++i;
 		res ~= "=$" ~ i.to!string;
 		if (i < s.length)
@@ -307,7 +302,8 @@ string putPlaceholders(string[] s) @safe {
 
 @safe unittest {
 	assert(putPlaceholders([]) == "");
-	assert(putPlaceholders(["a", "b", "c"]) == `"a"=$1,"b"=$2,"c"=$3`);
+	assert(putPlaceholders(["a", "b", "c"]) == `a=$1,b=$2,c=$3`);
+	assert(putPlaceholders(["a", "on"]) == `a=$1,"on"=$2`);
 }
 
 template getSQLFields(string prefix, string suffix, alias filter, T) {

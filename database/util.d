@@ -141,7 +141,7 @@ S pascalCase(S)(in S input, char sep = '_')
 }
 
 /// quote a string for SQL
-S quote(S)(S s, char q = '"') if (isSomeString!S) {
+S quote(S)(S s, char q = '\'') if (isSomeString!S) {
 	import std.algorithm;
 
 	version (NO_SQLQUOTE)
@@ -156,25 +156,51 @@ S quote(S)(S s, char q = '"') if (isSomeString!S) {
 }
 
 @safe unittest {
-	assert("a".quote == `"a"`);
+	assert("a".quote == `'a'`);
 	assert("a".quote('"') == `"a"`);
 	assert("a".quote('\'') == `'a'`);
-	assert("a.b".quote == `"a"."b"`);
-	assert(`a"`.quote == `"a"""`);
+	assert("a.b".quote('"') == `"a"."b"`);
+	assert(`a"`.quote('"') == `"a"""`);
+}
+
+version (NO_SQLQUOTE) {
+} else
+	immutable keywords = {
+	import std.algorithm;
+
+	bool[string] res;
+	foreach (keyword; import("keywords.txt").splitter('\n'))
+		res[keyword] = true;
+	return res;
+}();
+
+S identifier(S)(S s) {
+	import std.string;
+
+	version (NO_SQLQUOTE) {
+	} else {
+		if (s.toUpper in keywords)
+			return '"' ~ s ~ '"';
+	}
+	return s;
 }
 
 S quoteJoin(S, bool leaveTail = false)(S[] s, char sep = ',', char q = '"')
 if (isSomeString!S) {
 	import std.array;
+	import std.string;
 
 	auto res = appender!S;
 	for (size_t i; i < s.length; i++) {
 		version (NO_SQLQUOTE)
 			res ~= s[i];
 		else {
-			res ~= q;
-			res ~= s[i];
-			res ~= q;
+			if (s[i].toUpper in keywords) {
+				res ~= q;
+				res ~= s[i];
+				res ~= q;
+			} else
+				res ~= s[i];
 		}
 		if (leaveTail || i + 1 < s.length)
 			res ~= sep;
@@ -184,9 +210,9 @@ if (isSomeString!S) {
 
 @safe unittest {
 	assert(quoteJoin!string([]) == "");
-	assert(["a", "b"].quoteJoin == `"a","b"`);
-	assert(["a", "b"].quoteJoin(',') == `"a","b"`);
-	assert(["a", "b"].quoteJoin(',', '\'') == `'a','b'`);
+	assert(["a", "b"].quoteJoin == `a,b`);
+	assert(["group", "on"].quoteJoin(',') == `"group","on"`);
+	assert(["group", "on"].quoteJoin(',', '\'') == `'group','on'`);
 }
 
 T parse(T)(inout(char)[] data) if (isIntegral!T)
