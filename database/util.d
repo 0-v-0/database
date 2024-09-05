@@ -149,17 +149,14 @@ S quote(S)(S s, char q = '\'') if (isSomeString!S) {
 	else {
 		if (s.canFind(q))
 			s = s.replace([q], [q, q]);
-		if (q == '"' && s.canFind('.'))
-			s = s.replace(".", `"."`);
 		return q ~ s ~ q;
 	}
 }
 
 @safe unittest {
 	assert("a".quote == `'a'`);
-	assert("a".quote('"') == `"a"`);
 	assert("a".quote('\'') == `'a'`);
-	assert("a.b".quote('"') == `"a"."b"`);
+	assert("a".quote('"') == `"a"`);
 	assert(`a"`.quote('"') == `"a"""`);
 }
 

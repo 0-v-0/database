@@ -112,13 +112,18 @@ struct SQLBuilder {
 	}
 
 	///
-	static SB select(Fields...)() if (Fields.length) {
-		static if (allSatisfy!(isString, Fields)) {
-			enum sql = [Fields].join(',');
+	static SB select(Args...)() if (Args.length) {
+		static if (allSatisfy!(isString, Args)) {
+			enum sql = [Args].join(',');
 			return SB(sql, State.select);
 		} else {
-			enum sql = quoteJoin([staticMap!(SQLName, Fields)]);
-			return SB(sql, State.select).from(NoDuplicates!(staticMap!(ParentName, Fields)));
+			enum sql = quoteJoin([staticMap!(SQLName, Args)]);
+			enum isTable(alias x) = is(x) && isAggregateType!x;
+			static if (allSatisfy!(isTable, Args)) {
+				return SB("*", State.select).from(sql);
+			} else {
+				return SB(sql, State.select).from(NoDuplicates!(staticMap!(ParentName, Args)));
+			}
 		}
 	}
 
@@ -128,6 +133,7 @@ struct SQLBuilder {
 		assert(SQLBuilder.select!("hey", "you") == `SELECT hey,you`);
 		assert(SQLBuilder.select!(User.name) == `SELECT name FROM "User"`);
 		assert(SQLBuilder.select!(User.name, User.age) == `SELECT name,age FROM "User"`);
+		assert(SQLBuilder.select!User == `SELECT * FROM "User"`);
 		with (User) {
 			assert(SQLBuilder.select!(name, age) == `SELECT name,age FROM "User"`);
 		}
@@ -193,6 +199,7 @@ struct SQLBuilder {
 	unittest {
 		assert(SQLBuilder.update("User") == `UPDATE "User"`);
 		assert(SQLBuilder.update!User == `UPDATE "User"`);
+		assert(SQLBuilder.update!User.set("name=$1") == `UPDATE "User" SET name=$1`);
 		assert(SQLBuilder.updateAll!User == `UPDATE "User" SET name=$1,age=$2`);
 	}
 
@@ -343,7 +350,8 @@ SB createTable(T)() {
 					static if (is(typeof(A) == sqlkey)) {
 						static if (A.key.length) {
 							{
-								enum key = "FOREIGN KEY(" ~ identifier(colName)
+								enum key = "FOREIGN KEY(" ~ identifier(
+										colName)
 									~ ") REFERENCES " ~ A.key;
 								version (DB_SQLite)
 									keys ~= key ~ " ON DELETE CASCADE";

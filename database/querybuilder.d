@@ -4,7 +4,6 @@ import std.meta;
 import std.traits;
 
 import database.sqlbuilder;
-import database.util;
 
 enum Placeholder;
 
@@ -23,17 +22,16 @@ struct QueryBuilder(SB sb, Args...) {
 
 	template opDispatch(string key) {
 		template opDispatch(A...) {
-			static if (A.length && allSatisfy!(isType, A))
+			static if (A.length && allSatisfy!(isType, A)) {
+				alias T = __traits(getMember, sb, key);
 				alias opDispatch = QueryBuilder!(
-					mixin("sb.", key, "!A")(),
+					__traits(child, sb, T!A)(),
 					Args);
-			else {
-				import std.algorithm : move;
-
+			} else {
 				alias expr = AS!();
 				alias args = AS!();
 				static foreach (a; A) {
-					static if (is(typeof(move(a)))) {
+					static if (is(typeof(&a))) {
 						args = AS!(args, a);
 						expr = AS!(expr, Placeholder);
 					} else
@@ -51,6 +49,8 @@ struct QueryBuilder(SB sb, Args...) {
 }
 
 unittest {
+	import database.util;
+
 	@snakeCase
 	struct User {
 		@sqlkey() uint id;
