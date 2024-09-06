@@ -25,7 +25,7 @@ struct Query {
 	alias stmt this;
 
 	/// Construct a query from the string 'sql' into database 'db'
-	this(A...)(sqlite3* db, in char[] sql, auto ref A args)
+	this(A...)(sqlite3* db, in char[] sql, A args)
 	in (db)
 	in (sql.length <= int.max) {
 		lastCode = -1;
@@ -53,7 +53,7 @@ struct Query {
 	}
 
 	/// Bind these args in order to '?' marks in statement
-	pragma(inline, true) void set(A...)(auto ref A args) {
+	pragma(inline, true) void set(A...)(A args) {
 		foreach (a; args)
 			db.checkError!"Bind failed: "(bindArg(++argIndex, a));
 	}

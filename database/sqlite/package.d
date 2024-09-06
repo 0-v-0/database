@@ -110,7 +110,7 @@ struct SQLite3 {
 	}
 
 	/// Execute an sql statement directly, binding the args to it
-	bool exec(A...)(in char[] sql, auto ref A args) {
+	bool exec(A...)(in char[] sql, A args) {
 		auto q = query(sql, args);
 		q.step();
 		return q.lastCode == SQLITE_DONE || q.lastCode == SQLITE_ROW;
@@ -152,7 +152,7 @@ struct SQLite3 {
 	}
 
 	/// Create query from string and args to bind
-	auto query(A...)(in char[] sql, auto ref A args)
+	auto query(A...)(in char[] sql, A args)
 		=> Query(db, sql, args);
 
 	private auto make(State state, string prefix, string suffix, alias filter = skipRowid, T)(T s)

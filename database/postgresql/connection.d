@@ -92,7 +92,7 @@ class Connection {
 		return QueryResult!T(this);
 	}
 
-	auto query(T = PgSQLRow, Args...)(in char[] sql, auto ref Args args) {
+	auto query(T = PgSQLRow, Args...)(in char[] sql, Args args) {
 		prepare!Args("", sql);
 		bind("", "", forward!args);
 		flush();
@@ -102,7 +102,7 @@ class Connection {
 		return QueryResult!T(this, FormatCode.Binary);
 	}
 
-	ulong exec(Args...)(in char[] sql, auto ref Args args) {
+	ulong exec(Args...)(in char[] sql, Args args) {
 		prepare!Args("", sql);
 		bind("", "", forward!args);
 		flush();
@@ -132,7 +132,7 @@ class Connection {
 		socket.write(op.data);
 	}
 
-	void bind(Args...)(in char[] portal, in char[] statement, auto ref Args args) @trusted
+	void bind(Args...)(in char[] portal, in char[] statement, Args args) @trusted
 	if (Args.length <= short.max) {
 		auto len = 5 +
 			portal.length + 1 +

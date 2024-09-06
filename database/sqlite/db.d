@@ -57,17 +57,17 @@ struct SQLite3DB {
 		return q.lastCode == SQLITE_DONE;
 	}
 
-	auto selectAllWhere(T, string expr, A...)(auto ref A args) if (expr.length)
+	auto selectAllWhere(T, string expr, A...)(A args) if (expr.length)
 		=> QueryResult!T(query(SB.selectAllFrom!T.where(expr), args));
 
-	T selectOneWhere(T, string expr, A...)(auto ref A args) if (expr.length) {
+	T selectOneWhere(T, string expr, A...)(A args) if (expr.length) {
 		auto q = query(SB.selectAllFrom!T.where(expr), args);
 		if (q.step())
 			return q.get!T;
 		throw new SQLEx("No match");
 	}
 
-	T selectOneWhere(T, string expr, T defValue, A...)(auto ref A args)
+	T selectOneWhere(T, string expr, T defValue, A...)(A args)
 	if (expr.length) {
 		auto q = query(SB.selectAllFrom!T.where(expr), args);
 		return q.step() ? q.get!T : defValue;
@@ -118,7 +118,7 @@ struct SQLite3DB {
 
 	int replaceInto(alias filter = skipRowid, T)(T s) => insert!(OR.Replace, filter, T)(s);
 
-	int delWhere(T, string expr, A...)(auto ref A args) if (expr.length) {
+	int delWhere(T, string expr, A...)(A args) if (expr.length) {
 		query(SB.del!T.where(expr), args).step();
 		return db.changes;
 	}
