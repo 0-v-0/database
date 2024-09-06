@@ -162,7 +162,7 @@ S quote(S)(S s, char q = '\'') if (isSomeString!S) {
 
 version (NO_SQLQUOTE) {
 } else
-	immutable keywords = {
+	immutable sqlKeywords = {
 	import std.algorithm;
 
 	bool[string] res;
@@ -176,7 +176,7 @@ S identifier(S)(S s) {
 
 	version (NO_SQLQUOTE) {
 	} else {
-		if (s.toUpper in keywords)
+		if (s.toUpper in sqlKeywords)
 			return '"' ~ s ~ '"';
 	}
 	return s;
@@ -192,7 +192,7 @@ if (isSomeString!S) {
 		version (NO_SQLQUOTE)
 			res ~= s[i];
 		else {
-			if (s[i].toUpper in keywords) {
+			if (s[i].toUpper in sqlKeywords) {
 				res ~= q;
 				res ~= s[i];
 				res ~= q;
