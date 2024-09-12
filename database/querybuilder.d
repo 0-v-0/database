@@ -5,7 +5,7 @@ import std.traits;
 
 import database.sqlbuilder;
 
-enum Placeholder;
+struct Placeholder(alias x);
 
 @safe:
 
@@ -33,13 +33,13 @@ struct QueryBuilder(SB sb, Args...) {
 				static foreach (a; A) {
 					static if (is(typeof(&a))) {
 						args = AS!(args, a);
-						expr = AS!(expr, Placeholder);
+						expr = AS!(expr, Placeholder!a);
 					} else
 						expr = AS!(expr, a);
 				}
 
 				alias opDispatch = QueryBuilder!(
-					__traits(getMember, sb, key)(putPlaceholder!expr(Args.length + 1)),
+					__traits(getMember, sb, key)(putPlaceholder!expr(Args.length)),
 					Args, args);
 			}
 		}
@@ -55,23 +55,32 @@ unittest {
 	struct User {
 		@sqlkey() uint id;
 		string name;
+		uint parent;
 	}
 
 	uint id = 1;
 	auto name = "name";
 
-	alias s = Alias!(select!"name".from!User
-			.where!("id=", id));
+	alias s = select!"name".from!User
+			.where!("id=", id);
 	static assert(s.sql == `SELECT name FROM "user" WHERE id=$1`);
 	assert(s.args == AliasSeq!(id));
 
-	alias u = Alias!(update!User.set!("name=", name)
+	alias s2 = select!(User.name).where!("id=", id);
+	static assert(s2.sql == `SELECT name FROM "user" WHERE id=$1`);
+	assert(s2.args == AliasSeq!(id));
+
+	alias s3 = select!(User.name).where!("id>=", id, " AND parent=", id);
+	static assert(s3.sql == `SELECT name FROM "user" WHERE id>=$1 AND parent=$2`);
+	assert(s3.args == AliasSeq!(id));
+
+	alias u = update!User.set!("name=", name)
 			.from!User
-			.where!("id=", id));
+			.where!("id=", id);
 	static assert(u.sql == `UPDATE "user" SET name=$1 FROM "user" WHERE id=$2`);
 	assert(u.args == AliasSeq!(name, id));
 
-	alias d = Alias!(del!User.where!("id=", id));
+	alias d = del!User.where!("id=", id);
 	static assert(d.sql == `DELETE FROM "user" WHERE id=$1`);
 	assert(d.args == AliasSeq!(id));
 }
@@ -80,14 +89,13 @@ private:
 
 alias AS = AliasSeq;
 
-string putPlaceholder(T...)(uint start = 1) {
+string putPlaceholder(A...)(uint start) {
 	import std.conv : text;
 
 	auto s = "";
-	alias i = start;
-	foreach (a; T) {
-		static if (is(a == Placeholder))
-			s ~= text('$', i++);
+	foreach (a; A) {
+		static if (isInstanceOf!(Placeholder, a))
+			s ~= text('$', start + staticIndexOf!(a, A));
 		else
 			s ~= text(a);
 	}
