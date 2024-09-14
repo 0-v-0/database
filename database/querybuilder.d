@@ -32,7 +32,7 @@ struct QueryBuilder(SB sb, Args...) {
 				alias args = AS!();
 				static foreach (a; A) {
 					static if (is(typeof(&a))) {
-						args = AS!(args, a);
+						args = NoDuplicates!(args, a);
 						expr = AS!(expr, Placeholder!a);
 					} else
 						expr = AS!(expr, a);
@@ -62,7 +62,7 @@ unittest {
 	auto name = "name";
 
 	alias s = select!"name".from!User
-			.where!("id=", id);
+		.where!("id=", id);
 	static assert(s.sql == `SELECT name FROM "user" WHERE id=$1`);
 	assert(s.args == AliasSeq!(id));
 
@@ -71,13 +71,12 @@ unittest {
 	assert(s2.args == AliasSeq!(id));
 
 	alias s3 = select!(User.name).where!("id>=", id, " AND parent=", id);
-	static assert(s3.sql == `SELECT name FROM "user" WHERE id>=$1 AND parent=$2`);
+	static assert(s3.sql == `SELECT name FROM "user" WHERE id>=$1 AND parent=$1`);
 	assert(s3.args == AliasSeq!(id));
 
 	alias u = update!User.set!("name=", name)
-			.from!User
-			.where!("id=", id);
-	static assert(u.sql == `UPDATE "user" SET name=$1 FROM "user" WHERE id=$2`);
+		.where!("id=", id);
+	static assert(u.sql == `UPDATE "user" SET name=$1 WHERE id=$2`);
 	assert(u.args == AliasSeq!(name, id));
 
 	alias d = del!User.where!("id=", id);
