@@ -5,6 +5,7 @@ database.postgresql.packet,
 database.postgresql.protocol,
 database.postgresql.row,
 database.postgresql.type,
+database.traits,
 std.traits;
 public import database.sqlbuilder;
 import std.utf;
@@ -38,7 +39,7 @@ struct PgSQLDB {
 	ulong insert(OR or = OR.None, alias filter = skipRowid, T)(T s) if (isAggregateType!T) {
 		mixin getSQLFields!(or ~ "INTO " ~ identifier(SQLName!T) ~ '(',
 			")VALUES(" ~ placeholders(ColumnCount!T) ~ ')', filter, T);
-
+		enum colNames = ColumnNames!T;
 		enum sql = SB(sql!colNames, State.insert);
 		return exec(sql, s.tupleof);
 	}

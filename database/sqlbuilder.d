@@ -351,8 +351,7 @@ SB createTable(T)() {
 						static if (A.key.length) {
 							{
 								enum key = "FOREIGN KEY(" ~ identifier(
-										colName)
-									~ ") REFERENCES " ~ A.key;
+										colName) ~ ") REFERENCES " ~ A.key;
 								version (DB_SQLite)
 									keys ~= key ~ " ON DELETE CASCADE";
 								else

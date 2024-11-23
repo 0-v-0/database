@@ -5,7 +5,6 @@ import core.time,
 	database.sqlbuilder,
 	std.exception,
 	std.meta,
-	std.socket,
 	std.string,
 	std.traits,
 	std.typecons;
@@ -342,58 +341,61 @@ align(1) union _l {
 	ulong n;
 }
 
-class DBSocket(E : Exception) : TcpSocket {
+template DBSocket(E : Exception) {
+	import std.socket;
 	import core.stdc.errno;
+	class DBSocket : TcpSocket {
 
-@safe:
-	this(in char[] host, ushort port) {
-		super(new InternetAddress(host, port));
-		setOption(SocketOptionLevel.SOCKET, SocketOption.KEEPALIVE, true);
-		setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-		setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, 30.seconds);
-		setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 30.seconds);
-	}
-
-	override void close() scope {
-		shutdown(SocketShutdown.BOTH);
-		super.close();
-	}
-
-	void read(void[] buffer) {
-		long len = void;
-
-		for (size_t i; i < buffer.length; i += len) {
-			len = receive(buffer[i .. $]);
-
-			if (len > 0)
-				continue;
-
-			if (len == 0)
-				throw new E("Server closed the connection");
-
-			if (errno == EINTR || errno == EAGAIN /* || errno == EWOULDBLOCK*/ )
-				len = 0;
-			else
-				throw new E("Received std.socket.Socket.ERROR: " ~ formatSocketError(errno));
+	@safe:
+		this(in char[] host, ushort port) {
+			super(new InternetAddress(host, port));
+			setOption(SocketOptionLevel.SOCKET, SocketOption.KEEPALIVE, true);
+			setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+			setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, 30.seconds);
+			setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 30.seconds);
 		}
-	}
 
-	void write(in void[] buffer) {
-		long len = void;
+		override void close() scope {
+			shutdown(SocketShutdown.BOTH);
+			super.close();
+		}
 
-		for (size_t i; i < buffer.length; i += len) {
-			len = send(buffer[i .. $]);
+		void read(void[] buffer) {
+			long len = void;
 
-			if (len > 0)
-				continue;
+			for (size_t i; i < buffer.length; i += len) {
+				len = receive(buffer[i .. $]);
 
-			if (len == 0)
-				throw new E("Server closed the connection");
+				if (len > 0)
+					continue;
 
-			if (errno == EINTR || errno == EAGAIN /* || errno == EWOULDBLOCK*/ )
-				len = 0;
-			else
-				throw new E("Sent std.socket.Socket.ERROR: " ~ formatSocketError(errno));
+				if (len == 0)
+					throw new E("Server closed the connection");
+
+				if (errno == EINTR || errno == EAGAIN /* || errno == EWOULDBLOCK*/ )
+					len = 0;
+				else
+					throw new E("Received Socket ERROR: " ~ formatSocketError(errno));
+			}
+		}
+
+		void write(in void[] buffer) {
+			long len = void;
+
+			for (size_t i; i < buffer.length; i += len) {
+				len = send(buffer[i .. $]);
+
+				if (len > 0)
+					continue;
+
+				if (len == 0)
+					throw new E("Server closed the connection");
+
+				if (errno == EINTR || errno == EAGAIN /* || errno == EWOULDBLOCK*/ )
+					len = 0;
+				else
+					throw new E("Sent Socket ERROR: " ~ formatSocketError(errno));
+			}
 		}
 	}
 }
