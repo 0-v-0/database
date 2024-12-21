@@ -16,8 +16,6 @@ private enum canConvertToInt(T) = __traits(isIntegral, T) ||
 	is(T : Date) || is(T : DateTime) || is(T : SysTime) || is(T : Duration);
 
 /// Represents a sqlite3 statement
-alias Statement = Query;
-
 struct Query {
 	int lastCode;
 	int argIndex;
@@ -153,10 +151,7 @@ private:
 			return sqlite3_bind_text(stmt, pos, x.ptr, cast(int)x.length, null);
 	}
 
-	int bindArg(int pos, double x)
-		=> sqlite3_bind_double(stmt, pos, x);
-
-	int bindArg(T)(int pos, T x) if (canConvertToInt!T) {
+	int bindArg(T)(int pos, T x) if (canConvertToInt!T || isFloatingPoint!T) {
 		static if (is(T : Date))
 			return sqlite3_bind_int(stmt, pos, x.dayOfGregorianCal);
 		else static if (is(T : DateTime))
@@ -165,6 +160,8 @@ private:
 			return sqlite3_bind_int64(stmt, pos, x.stdTime - EpochStdTime);
 		else static if (is(T : Duration))
 			return sqlite3_bind_int64(stmt, pos, x.total!"usecs");
+		else static if (isFloatingPoint!T)
+			return sqlite3_bind_double(stmt, pos, x);
 		else static if (T.sizeof > 4)
 			return sqlite3_bind_int64(stmt, pos, x);
 		else
