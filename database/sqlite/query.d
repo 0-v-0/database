@@ -98,6 +98,12 @@ struct Query {
 		return getArg!T(column);
 	}
 
+	/// Get current row (and column), with a default value
+	T get(T, int column = 0)(T defValue)
+	in (stmt) {
+		return empty ? defValue : get!(T, column)();
+	}
+
 	/// Map current row to the fields of the given T
 	T get(T, int _ = 0)() if (isAggregateType!T)
 	in (stmt) {

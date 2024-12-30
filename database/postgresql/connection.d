@@ -13,7 +13,7 @@ struct Status {
 	bool ready;
 	TransactionStatus transaction = TransactionStatus.Idle;
 
-	ulong affected, insertID;
+	ulong affected, insertId;
 }
 
 // dfmt off
@@ -67,7 +67,7 @@ class Connection {
 	@property final {
 		bool inTransaction() const => connected && status_.transaction == TransactionStatus.Inside;
 
-		ulong insertID() const nothrow @nogc => status_.insertID;
+		ulong insertId() const nothrow @nogc => status_.insertId;
 
 		ulong affected() const nothrow @nogc => status_.affected;
 
@@ -517,16 +517,16 @@ private:
 
 		switch (hashOf(cmd)) {
 		case hashOf("INSERT"):
-			status_.insertID = tag.parse!ulong;
+			status_.insertId = tag.parse!ulong;
 			status_.affected = tag.parse!ulong(1);
 			break;
 		case hashOf("SELECT"), hashOf("DELETE"), hashOf("UPDATE"),
 			hashOf("MOVE"), hashOf("FETCH"), hashOf("COPY"):
-			status_.insertID = 0;
+			status_.insertId = 0;
 			status_.affected = tag.parse!ulong;
 			break;
 		case hashOf("CREATE"), hashOf("DROP"):
-			status_.insertID = 0;
+			status_.insertId = 0;
 			status_.affected = 0;
 			break;
 		default:

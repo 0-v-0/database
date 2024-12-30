@@ -195,7 +195,7 @@ struct SQLite3 {
 		assert(db.hasTable("MyTable"));
 	}
 
-	auto insertID() => lastRowid(db);
+	auto insertId() => lastRowid(db);
 
 	sqlite3* db;
 	alias db this;
