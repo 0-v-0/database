@@ -197,7 +197,7 @@ private:
 			else static if (is(T : Duration))
 				return dur!"usecs"(sqlite3_column_int64(stmt, pos));
 			else static if (T.sizeof > 4)
-				return sqlite3_column_int64(stmt, pos);
+				return cast(T)sqlite3_column_int64(stmt, pos);
 			else
 				return cast(T)sqlite3_column_int(stmt, pos);
 		} else static if (isSomeString!T) {
@@ -214,7 +214,7 @@ private:
 			enforce!SQLEx(typ == SQLITE3_TEXT || typ == SQLITE_BLOB,
 				"Column is not a blob or string");
 			auto ptr = sqlite3_column_blob(stmt, pos);
-			int size = sqlite3_column_bytes(stmt, pos);
+			const size = sqlite3_column_bytes(stmt, pos);
 			static if (isStaticArray!T) {
 				enforce!SQLEx(size == T.sizeof, "Column size does not match array size");
 				return cast(T)ptr[0 .. T.sizeof];
