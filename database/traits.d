@@ -77,7 +77,8 @@ unittest {
 }
 
 /// Generate a column name given a field in T.
-template ColumnName(T, string field) if (isAggregateType!T) {
+template ColumnName(T, string field)
+if (isAggregateType!T) {
 	enum ColumnName = SQLName!(__traits(getMember, T, field), field);
 }
 
@@ -114,7 +115,7 @@ template ColumnCount(T) {
 }
 
 template SQLTypeOf(T) {
-	static if (isSomeString!T)
+	static if (is(T : const(char[])))
 		enum SQLTypeOf = "TEXT";
 	else static if (isFloatingPoint!T) {
 		static if (T.sizeof == 4)
@@ -130,7 +131,7 @@ template SQLTypeOf(T) {
 			enum SQLTypeOf = "BIGINT";
 	} else static if (isBoolean!T)
 		enum SQLTypeOf = "BOOLEAN";
-	else static if (!isSomeString!T && !isScalarType!T) {
+	else static if (!is(T : const(char[])) && !isScalarType!T) {
 		version (DB_PGSQL) {
 			static if (is(T : Date))
 				enum SQLTypeOf = "date";
@@ -210,7 +211,8 @@ template isReadableDataMember(alias M) {
 }
 
 /// Sort tables based on dependencies
-template sortTable(T...) if (T.length <= uint.max) {
+template sortTable(T...)
+if (T.length <= uint.max) {
 	import std.meta;
 
 	enum N = cast(uint)T.length;

@@ -94,9 +94,11 @@ struct Row(Value, Header, E:
 			structurize!strict(x);
 	}
 
-	T get(T)() if (!isAggregateType!T) => this[0].get!T;
+	T get(T)()
+	if (!isAggregateType!T) => this[0].get!T;
 
-	T get(T, Strict strict = Strict.yesIgnoreNull)() if (isAggregateType!T) {
+	T get(T, Strict strict = Strict.yesIgnoreNull)()
+	if (isAggregateType!T) {
 		T result;
 		get!(T, strict)(result);
 		return result;
