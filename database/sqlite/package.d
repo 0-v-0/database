@@ -169,10 +169,10 @@ struct SQLite3 {
 	if (isAggregateType!T) {
 		import std.array : replicate;
 
-		enum qms = ",?".replicate(ColumnCount!T);
+		enum qms = "?,".replicate(ColumnCount!(T, filter));
 		return make!(State.insert, or ~ "INTO " ~
 				identifier(SQLName!T) ~ '(', ") VALUES(" ~
-				(qms.length ? qms[1 .. $] : qms) ~ ')', filter)(s);
+				(qms.length ? qms[0 .. $ - 1] : qms) ~ ')', filter)(s);
 	}
 
 	bool begin() => exec("begin");

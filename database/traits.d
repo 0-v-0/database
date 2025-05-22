@@ -100,19 +100,13 @@ unittest {
 }
 
 template ColumnNames(T) {
-	enum colName(string NAME) = ColumnName!(T, NAME);
+	enum colName(string name) = ColumnName!(T, name);
 	enum ColumnNames = staticMap!(colName, FieldNameTuple!T);
 }
 
-/// get column count except "rowid" field
-template ColumnCount(T) {
-	enum colNames = ColumnNames!T,
-		indexOfRowid = staticIndexOf!("rowid", colNames);
-	static if (~indexOfRowid)
-		enum ColumnCount = colNames.length - 1;
-	else
-		enum ColumnCount = colNames.length;
-}
+/// get column count of a table using the filter
+enum ColumnCount(T, alias filter = skipRowid)
+	= FilterIndex!(filter, ColumnNames!T).length;
 
 template SQLTypeOf(T) {
 	static if (is(T : const(char[])))
