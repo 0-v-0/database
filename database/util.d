@@ -45,7 +45,14 @@ CharClass classify(char ch) pure {
 }
 
 public:
-/// Convert a string to snake_case
+/++ Convert a string to snake_case.
+
+Params:
+	input = The input string.
+	sep = The separator to insert between words.
+
+Returns: The snake_case representation of the input string.
++/
 S snakeCase(S)(S input, char sep = '_') {
 	if (!input.length)
 		return "";
@@ -71,7 +78,7 @@ S snakeCase(S)(S input, char sep = '_') {
 		}
 		pcls = cls;
 
-		if (length >= buffer.length - 1)
+		if (length >= buffer.length - 1) // @suppress(dscanner.suspicious.length_subtraction)
 			break;
 	}
 	return cast(S)buffer[0 .. length].dup;
@@ -101,7 +108,15 @@ unittest {
 	test("coverImageURL", "cover_image_url");
 }
 
-/// Convert a string to camelCase
+/++ Convert a string to camelCase.
+
+Params:
+    upper = Whether to capitalize the first character.
+    input = The input string.
+    sep = The separator to treat as a word boundary.
+
+Returns: The camelCase representation of the input string.
++/
 S camelCase(S, bool upper = false)(in S input, char sep = '_') {
 	S output;
 	bool upcaseNext = upper;
@@ -118,7 +133,13 @@ S camelCase(S, bool upper = false)(in S input, char sep = '_') {
 	return output;
 }
 
-/// Convert a string to PascalCase
+/++ Convert a string to PascalCase.
+
+Params:
+    input = The input string.
+    sep = The separator to treat as a word boundary.
+Returns: The PascalCase representation of the input string.
++/
 S pascalCase(S)(in S input, char sep = '_')
 	=> camelCase!(S, true)(input, sep);
 
@@ -139,8 +160,16 @@ S pascalCase(S)(in S input, char sep = '_')
 	assert("http_response_code_xyz".pascalCase == "HttpResponseCodeXyz");
 }
 
-/// quote a string for SQL
-S quote(S)(S s, char q = '\'') if (isSomeString!S) {
+/++ Quote a string for SQL.
+
+Params:
+	s = The string to quote.
+	q = The quote character to use.
+
+Returns: The quoted SQL string.
++/
+S quote(S)(S s, char q = '\'')
+if (isSomeString!S) {
 	import std.algorithm;
 
 	version (NO_SQLQUOTE)
@@ -211,10 +240,12 @@ if (isSomeString!S) {
 	assert(["group", "on"].quoteJoin(',', '\'') == `'group','on'`);
 }
 
-T parse(T)(inout(char)[] data) if (isIntegral!T)
+T parse(T)(inout(char)[] data)
+if (isIntegral!T)
 	=> parse!T(data, 0);
 
-T parse(T)(ref inout(char)[] data, size_t startIndex = 0) if (isIntegral!T)
+T parse(T)(ref inout(char)[] data, size_t startIndex = 0)
+if (isIntegral!T)
 in (startIndex <= data.length) {
 	T x;
 	auto i = startIndex;

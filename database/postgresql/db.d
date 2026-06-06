@@ -120,7 +120,7 @@ struct QueryResult(T = PgSQLRow) {
 				row[i] = eatValue(packet, column);
 			else
 				row[i] = PgSQLValue(null);
-		assert(packet.empty);
+		assert(packet.empty, "Expected packet to be fully consumed, but " ~ packet.remaining.to!string ~ " bytes remain");
 	}
 
 	T front() {

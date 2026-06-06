@@ -129,7 +129,7 @@ package(database):
 		}
 
 		auto mask = indexLen - 1;
-		assert((indexLen & mask) == 0);
+		assert((indexLen & mask) == 0, "Index length must be a power of 2");
 
 		values.length = headerLen;
 		foreach (index, ref column; header) {

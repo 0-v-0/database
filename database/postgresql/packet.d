@@ -53,7 +53,7 @@ struct InputPacket {
 	}
 
 	T eat(T : U[], U)(size_t count) @trusted {
-		assert(U.sizeof * count <= buf.length);
+		assert(U.sizeof * count <= buf.length, "Packet underflow");
 		auto ptr = cast(U*)buf.ptr;
 		buf = buf[U.sizeof * count .. $];
 		return ptr[0 .. count];
@@ -130,7 +130,7 @@ struct OutputPacket {
 
 	ubyte[] data() @trusted {
 		check(0);
-		assert(implicit + pos <= buf.length);
+		assert(implicit + pos <= buf.length, "Packet overflow");
 		*cast(uint*)(buf.ptr + implicit - 4) = native(pos + 4);
 		return buf[0 .. implicit + pos];
 	}

@@ -59,7 +59,11 @@ struct Query {
 	int clear()
 	in (stmt) => sqlite3_clear_bindings(stmt);
 
-	/// Find column by name
+	/++ Find column by name
+		Params:
+			name = The column name to find
+		Returns: The column index, or -1 if not found
+	+/
 	int findColumn(in char[] name)
 	in (stmt) {
 		import core.stdc.string : strcmp;
@@ -90,7 +94,12 @@ struct Query {
 
 	alias popFront = step;
 
-	/// Get current row (and column) as a basic type
+	/++ Get current row (and column) as a basic type
+		Params:
+			T = The type to convert the column to
+			column = The column index to get (default: 0)
+		Returns: The column value converted to the given type
+	+/
 	T get(T, int column = 0)() if (!isAggregateType!T)
 	in (stmt) {
 		if (lastCode == -1)
@@ -98,13 +107,24 @@ struct Query {
 		return getArg!T(column);
 	}
 
-	/// Get current row (and column), with a default value
+	/++ Get current row (and column), with a default value
+		Params:
+			T = The type to convert the column to
+			column = The column index to get (default: 0)
+			defValue = The default value to return if the row is empty
+		Returns: The column value converted to the given type, or the default value if the row is empty
+	+/
 	T get(T, int column = 0)(T defValue)
 	in (stmt) {
 		return empty ? defValue : get!(T, column)();
 	}
 
-	/// Map current row to the fields of the given T
+	/++ Map current row to the fields of the given T
+		Params:
+			T = The type to map the row to
+			_ = Unused parameter for dispatching
+		Returns: An instance of T with the row values mapped to its fields
+	+/
 	T get(T, int _ = 0)() if (isAggregateType!T)
 	in (stmt) {
 		if (lastCode == -1)
@@ -119,7 +139,11 @@ struct Query {
 		return t;
 	}
 
-	/// Get current row as a tuple
+	/++ Get current row as a tuple
+		Params:
+			T = The types of the columns to get
+		Returns: A tuple of the column values, converted to the given types
+	+/
 	Tuple!T get(T...)() {
 		Tuple!T t;
 		foreach (I, Ti; T)
@@ -127,7 +151,9 @@ struct Query {
 		return t;
 	}
 
-	/// Step the SQL statement; move to next row of the result set. Return `false` if there are no more rows
+	/++ Step the SQL statement; move to next row of the result set.
+		Returns: `false` if there are no more rows
+	+/
 	bool step()
 	in (stmt) {
 		db.checkError!"Step failed"(lastCode = sqlite3_step(stmt));
@@ -142,7 +168,9 @@ struct Query {
 
 	T opCast(T : bool)() => !empty; // @suppress(dscanner.suspicious.object_const)
 
-	/// Reset the statement, to step through the resulting rows again.
+	/++ Reset the statement, to step through the resulting rows again.
+	Returns: `true` if the statement is valid and can be stepped again, `false` if the statement is invalid (e.g. if the database connection was closed)
+	+/
 	int reset()
 	in (stmt) => sqlite3_reset(stmt);
 

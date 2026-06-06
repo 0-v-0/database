@@ -53,7 +53,12 @@ struct sqltype { // @suppress(dscanner.style.phobos_naming_convention)
 /// foreign key
 enum foreign(alias field) = sqlkey(ColumnName!(field, true));
 
-/// Get the keyname of `T`, return empty if fails
+/++ Get the keyname of `T`, return empty if fails.
+
+Params:
+	T = The symbol or aggregate to inspect.
+	defaultName = Fallback name when no custom attribute is present.
++/
 template KeyName(alias T, string defaultName = T.stringof) {
 	static if (hasUDA!(T, ignore))
 		enum KeyName = "";
@@ -76,7 +81,12 @@ unittest {
 	static assert(SQLName!Message == "msg");
 }
 
-/// Generate a column name given a field in T.
+/++ Generate a column name given a field in `T`.
+
+Params:
+	T = The aggregate type that owns the field.
+	field = The field name.
++/
 template ColumnName(T, string field)
 if (isAggregateType!T) {
 	enum ColumnName = SQLName!(__traits(getMember, T, field), field);
@@ -108,6 +118,11 @@ template ColumnNames(T) {
 enum ColumnCount(T, alias filter = skipRowid)
 	= FilterIndex!(filter, ColumnNames!T).length;
 
+/++ Map a D type to the SQL column type string used by the backend.
+
+Params:
+	T = The D type to map.
++/
 template SQLTypeOf(T) {
 	static if (is(T : const(char[])))
 		enum SQLTypeOf = "TEXT";
@@ -204,7 +219,11 @@ template isReadableDataMember(alias M) {
 		enum isReadableDataMember = isVisible!M;
 }
 
-/// Sort tables based on dependencies
+/++ Sort tables based on dependencies.
+
+Params:
+	T = The table types to sort.
++/
 template sortTable(T...)
 if (T.length <= uint.max) {
 	import std.meta;
@@ -248,7 +267,12 @@ if (T.length <= uint.max) {
 	}
 }
 
-/// Returns whether table B depends on table A
+/++ Returns whether table B depends on table A.
+
+Params:
+	A = The candidate dependency table.
+	B = The table being checked.
++/
 template dependsOn(A, B) {
 	import std.string : startsWith;
 

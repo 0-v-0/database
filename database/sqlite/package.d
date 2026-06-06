@@ -31,11 +31,11 @@ class SQLiteException : DBException {
 }
 
 /// Setup code for tests
-version (unittest) package template TEST(string dbname = "", T = SQLite3) {
+version (unittest) package template TEST(string dbName = "", T = SQLite3) {
 	T db = {
-		static if (dbname.length) {
-			tryRemove(dbname ~ ".db");
-			return T(dbname ~ ".db");
+		static if (dbName.length) {
+			tryRemove(dbName ~ ".db");
+			return T(dbName ~ ".db");
 		} else
 			return T(":memory:");
 	}();
@@ -87,8 +87,8 @@ alias RCExSql = RefCounted!(ExpandedSql, RefCountedAutoInitialize.no);
 struct SQLite3 {
 
 	/++ Create a SQLite3 from a database file. If file does not exist, the
-	  database will be initialized as new
-	 +/
+		database will be initialized as new
+	+/
 	this(in char[] dbFile, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, int busyTimeout = 500) {
 		const rc = sqlite3_open_v2(dbFile.toz, &db, flags, null);
 		if (!rc)
@@ -208,5 +208,5 @@ struct SQLite3 {
 
 shared static this() {
 	const c = sqlite3_initialize();
-	assert(c == SQLITE_OK);
+	assert(c == SQLITE_OK, "Failed to initialize SQLite: " ~ c.to!string);
 }

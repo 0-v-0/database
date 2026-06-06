@@ -9,7 +9,7 @@ import
 // dfmt on
 
 /// Setup code for tests
-version (unittest) template TEST(string dbname = "") {
+version (unittest) template TEST(string dbName = "") {
 	struct User {
 		string name;
 		int age;
@@ -21,7 +21,7 @@ version (unittest) template TEST(string dbname = "") {
 		int byUser;
 	}
 
-	mixin database.sqlite.TEST!(dbname, SQLite3DB);
+	mixin database.sqlite.TEST!(dbName, SQLite3DB);
 }
 
 // Returned from select-type methods where the row type is known
