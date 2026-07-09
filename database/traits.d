@@ -17,40 +17,44 @@ version (unittest) package(database) {
 	}
 }
 
-/// Provide a custom name in the database for a field or table
+/++ Provide a custom name in the database for a field or table. +/
 struct as { // @suppress(dscanner.style.phobos_naming_convention)
 	string name;
 }
 
-/// Ignore a field, it is not considered part of the database data.
+/++ Ignore a field, it is not considered part of the database data. +/
 enum ignore; // @suppress(dscanner.style.phobos_naming_convention)
 
+/++ Mark a field as optional when reading query results. +/
 enum optional; // @suppress(dscanner.style.phobos_naming_convention)
 
-enum {
-	default0 = "default 0",
+/++ SQL column constraints emitted by helper attributes. +/
+	enum {
+		default0 = "default 0",
 
 	notnull = "not null",
-
-	/// Mark a specific column as unique on the table
+/++ Mark a specific column as unique on the table. +/
 	unique = "unique"
 }
 
 version (DB_SQLite) {
+	/++ Emit `WITHOUT ROWID` when requested. +/
 	enum noRowid = "WITHOUT ROWID";
+	/++ Emit an autoincrementing integer primary key for SQLite tables. +/
 	enum serial = sqltype("INTEGER PRIMARY KEY AUTOINCREMENT");
 }
 
-/// Mark a field as the primary key or foreign key of the table
+/++ Mark a field as the primary key or foreign key of the table. +/
 struct sqlkey { // @suppress(dscanner.style.phobos_naming_convention)
 	string key;
 }
 
+/++ Force a custom SQL column type. +/
 struct sqltype { // @suppress(dscanner.style.phobos_naming_convention)
 	string type;
 }
 
-/// foreign key
+/++ Declare a SQL foreign key by using a referenced field. +/
 enum foreign(alias field) = sqlkey(ColumnName!(field, true));
 
 /++ Get the keyname of `T`, return empty if fails.
@@ -72,10 +76,10 @@ template KeyName(alias T, string defaultName = T.stringof) {
 		enum KeyName = defaultName;
 }
 
-/// Get the sqlname of `T`
+/++ Get the SQL name of `T` (same as `KeyName`). +/
 alias SQLName = KeyName;
 
-///
+/// Test fixture checks for `KeyName` resolution.
 unittest {
 	static assert(SQLName!User == "User");
 	static assert(SQLName!Message == "msg");
@@ -92,12 +96,12 @@ if (isAggregateType!T) {
 	enum ColumnName = SQLName!(__traits(getMember, T, field), field);
 }
 
-/// Return the qualifed column name of the given struct field
+/++ Return the qualified column name of the given struct field. +/
 enum ColumnName(alias field, bool brackets = false) =
 	ParentName!field ~ (brackets ? '(' ~ identifier(
 			SQLName!field) ~ ')' : '.' ~ identifier(SQLName!field));
 
-///
+/// Test fixture checks for struct field names.
 unittest {
 	@as("msg") struct Message {
 		@as("txt") string contents;
@@ -109,12 +113,13 @@ unittest {
 	static assert(ColumnName!(User.age, true) == `"User"(age)`);
 }
 
+/++ Collect all database column names from a struct. +/
 template ColumnNames(T) {
 	enum colName(string name) = ColumnName!(T, name);
 	enum ColumnNames = staticMap!(colName, FieldNameTuple!T);
 }
 
-/// get column count of a table using the filter
+/++ Get column count of a table using the provided filter. +/
 enum ColumnCount(T, alias filter = skipRowid)
 	= FilterIndex!(filter, ColumnNames!T).length;
 
@@ -164,7 +169,7 @@ template SQLTypeOf(T) {
 		static assert(0, "Unsupported SQLType '" ~ T.stringof ~ '.');
 }
 
-///
+/// SQL type mapping regression checks.
 unittest {
 	static assert(SQLTypeOf!int == "INT");
 	static assert(SQLTypeOf!string == "TEXT");
@@ -187,8 +192,20 @@ unittest {
 	}
 }
 
+/++ Determine whether `M` is visible at public/package scope.
+
+Params:
+	M = The symbol to inspect.
+Returns: `true` when the symbol has `public` or `export` visibility.
++/
 enum isVisible(alias M) = __traits(getVisibility, M).length == 6; //public or export
 
+/++ Return whether a field is writable in query binding and schema generation.
+
+Params:
+	M = The member symbol to inspect.
+Returns: `true` when `M` can be assigned during write operations.
++/
 template isWritableDataMember(alias M) {
 	alias TM = typeof(M);
 	static if (is(AliasSeq!M) || hasUDA!(M, ignore))
@@ -203,6 +220,12 @@ template isWritableDataMember(alias M) {
 		enum isWritableDataMember = isVisible!M;
 }
 
+/++ Return whether a field is readable in query result decoding.
+
+Params:
+	M = The member symbol to inspect.
+Returns: `true` when `M` can be loaded from a result row.
++/
 template isReadableDataMember(alias M) {
 	alias TM = typeof(M);
 	static if (is(AliasSeq!M) || hasUDA!(M, ignore))
@@ -267,7 +290,7 @@ if (T.length <= uint.max) {
 	}
 }
 
-/++ Returns whether table B depends on table A.
+/++ Determine whether table `B` depends on table `A`.
 
 Params:
 	A = The candidate dependency table.
@@ -297,6 +320,7 @@ package(database):
 
 enum ParentName(alias field) = identifier(SQLName!(__traits(parent, field)));
 
+/++ Filter a tuple of field names using a predicate. +/
 template FilterIndex(alias pred, args...) {
 	alias FilterIndex = AliasSeq!();
 	static foreach (i, arg; args)
@@ -304,8 +328,10 @@ template FilterIndex(alias pred, args...) {
 			FilterIndex = AliasSeq!(FilterIndex, i);
 }
 
+/++ Skip the auto-generated rowid column. +/
 enum skipRowid(string name) = name != "rowid";
 
+/++ Build a comma-separated list of SQL placeholders from SQL field names. +/
 string putPlaceholders(string[] s) @safe {
 	import std.conv : to;
 

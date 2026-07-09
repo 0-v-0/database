@@ -5,21 +5,31 @@ import std.traits;
 
 import database.sqlbuilder;
 
+/++ Internal wrapper for placeholder marker in generated SQL fragments. +/
 struct Placeholder(alias x);
 
 @safe:
 
+/++ Build a DELETE query builder for a table type. +/
 alias del(T) = QueryBuilder!(SB.del!T);
 
+/++ Build a SELECT query builder for one or more field/table expressions. +/
 alias select(T...) = QueryBuilder!(SB.select!T);
 
+/++ Build an UPDATE query builder for table `T`. +/
 alias update(T, OR or = OR.None) = QueryBuilder!(SB.update!(T, or));
 
+/++ A typed, fluent query-builder wrapper around an `SQLBuilder` template. +/
 struct QueryBuilder(SB sb, Args...) {
 	enum sql = sb.sql;
 	alias args = Args;
 	alias all = AS!(sql, args);
 
+	/++ Forward clause operators to the underlying SQLBuilder and collect parameters.
+
+	Params:
+		key = Clause/method name to dispatch.
+	+/
 	template opDispatch(string key) {
 		template opDispatch(A...) {
 			static if (A.length && allSatisfy!(isType, A)) {
@@ -48,6 +58,7 @@ struct QueryBuilder(SB sb, Args...) {
 	alias all this;
 }
 
+ /// End-to-end query builder API examples with `select`, `update`, and `delete`.
 unittest {
 	import database.util;
 
@@ -88,6 +99,12 @@ private:
 
 alias AS = AliasSeq;
 
+/++ Convert placeholder markers into positional SQL parameters.
+
+Params:
+	start = Starting parameter index.
+Returns: SQL expression with `$1`, `$2`, ... substitutions.
++/
 string putPlaceholder(A...)(uint start) {
 	import std.conv : text;
 

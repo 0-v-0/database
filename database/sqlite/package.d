@@ -24,13 +24,15 @@ version (Windows) {
 	pragma(msg, "You need to manually link in the SQLite library.");
 }
 
+/++ Base exception for all SQLite-related errors raised by this module. +/
 class SQLiteException : DBException {
+	/++ Base exception for SQLite related errors. +/
 	this(string msg, string file = __FILE__, size_t line = __LINE__) pure @safe {
 		super(msg, file, line);
 	}
 }
 
-/// Setup code for tests
+/++ Setup code for tests. +/
 version (unittest) package template TEST(string dbName = "", T = SQLite3) {
 	T db = {
 		static if (dbName.length) {
@@ -55,35 +57,43 @@ private template Manager(alias ptr, alias freeptr) {
 }
 
 struct ExpandedSql {
+	/++ Heap-backed statement text buffer returned by SQLite APIs. +/
 	char* ptr;
 	mixin Manager!(ptr, sqlite3_free);
 }
 
+/++ Alias for a ref-counted expanded SQL wrapper. +/
 alias RCExSql = RefCounted!(ExpandedSql, RefCountedAutoInitialize.no);
 
 @property {
+	/++ Fetch the last error message for a connection. +/
 	auto errmsg(sqlite3* db) => sqlite3_errmsg(db).toStr;
 
+	/++ Return number of rows changed by the last statement. +/
 	int changes(sqlite3* db)
 	in (db) => sqlite3_changes(db);
-	/// Return the 'rowid' produced by the last insert statement
+	/++ Return the 'rowid' produced by the last insert statement. +/
 	long lastRowid(sqlite3* db)
 	in (db) => sqlite3_last_insert_rowid(db);
 
+	/++ Set the connection last inserted row id hint. +/
 	void lastRowid(sqlite3* db, long rowid)
 	in (db) => sqlite3_set_last_insert_rowid(db, rowid);
 
+	/++ Return the cumulative row change count for the connection. +/
 	int totalChanges(sqlite3* db)
 	in (db) => sqlite3_total_changes(db);
 
+	/++ Return the SQL text associated with a prepared statement. +/
 	string sql(sqlite3_stmt* stmt)
 	in (stmt) => sqlite3_sql(stmt).toStr;
 
+	/++ Return expanded SQL for a prepared statement with bound values inlined. +/
 	RCExSql expandedSql(sqlite3_stmt* stmt)
 	in (stmt) => RCExSql(ExpandedSql(sqlite3_expanded_sql(stmt)));
 }
 
-/// A sqlite3 database
+/++ A sqlite3 database wrapper and helpers. +/
 struct SQLite3 {
 
 	/++ Create a SQLite3 from a database file. If file does not exist, the
@@ -101,7 +111,7 @@ struct SQLite3 {
 		}
 	}
 
-	/// Execute multiple statements
+	/++ Execute multiple SQL statements separated by semicolons. +/
 	int execSQL(in char[] sql, out string errmsg) @trusted {
 		char* err_msg = void;
 		const rc = sqlite3_exec(db, sql.toz, null, null, &err_msg);
@@ -109,26 +119,26 @@ struct SQLite3 {
 		return rc;
 	}
 
-	/// Execute an sql statement directly, binding the args to it
+	/++ Execute an SQL statement directly, binding the args to it. +/
 	bool exec(A...)(in char[] sql, A args) {
 		auto q = query(sql, args);
 		q.step();
 		return q.lastCode == SQLITE_DONE || q.lastCode == SQLITE_ROW;
 	}
 
-	///
+	/// Execute/unittest fixture for statement execution.
 	unittest {
 		mixin TEST;
 		assert(db.exec("CREATE TABLE Test(name STRING)"));
 		assert(db.exec("INSERT INTO Test VALUES(?)", "hey"));
 	}
 
-	/// Return 'true' if database contains the given table
+	/// Return `true` if database contains the given table.
 	bool hasTable(in char[] table) => query(
 		"SELECT name FROM sqlite_master WHERE type='table' AND name=?",
 		table).step();
 
-	///
+	/// Validate table existence checks.
 	unittest {
 		mixin TEST;
 		assert(!db.hasTable("MyTable"));
@@ -136,7 +146,7 @@ struct SQLite3 {
 		assert(db.hasTable("MyTable"));
 	}
 
-	///
+	/// Validate insert and rowid behavior.
 	unittest {
 		mixin TEST;
 		assert(db.exec("CREATE TABLE MyTable(name STRING)"));
@@ -144,14 +154,14 @@ struct SQLite3 {
 		assert(db.lastRowid == 1);
 		assert(db.exec("INSERT INTO MyTable VALUES(?)", "ho"));
 		assert(db.lastRowid == 2);
-		// Only insert updates the last rowid
+		/// Only insert updates the last rowid
 		assert(db.exec("UPDATE MyTable SET name=? WHERE rowid=?", "woo", 1));
 		assert(db.lastRowid == 2);
 		db.lastRowid = 9;
 		assert(db.lastRowid == 9);
 	}
 
-	/// Create query from string and args to bind
+	/++ Create a query from SQL string and bound arguments. +/
 	auto query(A...)(in char[] sql, A args)
 		=> Query(db, sql, args);
 
@@ -175,10 +185,13 @@ struct SQLite3 {
 				(qms.length ? qms[0 .. $ - 1] : qms) ~ ')', filter)(s);
 	}
 
+	/++ Begin a transaction. +/
 	bool begin() => exec("begin");
 
+	/++ Commit current transaction. +/
 	bool commit() => exec("commit");
 
+	/++ Roll back current transaction. +/
 	bool rollback() => exec("rollback");
 
 	unittest {
@@ -200,6 +213,7 @@ struct SQLite3 {
 	sqlite3* db;
 	alias db this;
 
+	/++ Close the underlying SQLite handle. +/
 	void close() {
 		sqlite3_close_v2(db);
 		db = null;

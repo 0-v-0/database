@@ -12,6 +12,7 @@ package import database.postgresql.exception;
 
 @safe @nogc:
 
+/++ Input packet wrapper for PostgreSQL protocol responses and raw fields. +/
 struct InputPacket {
 	@disable this();
 	@disable this(this);
@@ -59,6 +60,7 @@ struct InputPacket {
 		return ptr[0 .. count];
 	}
 
+	/++ Decode helpers for protocol primitives from the packet body. +/
 	mixin InputPacketMethods!PgSQLProtocolException;
 
 private:
@@ -66,6 +68,7 @@ private:
 	ubyte typ;
 }
 
+/++ Output packet builder for encoding PostgreSQL protocol requests. +/
 struct OutputPacket {
 	@disable this();
 	@disable this(this);
@@ -135,6 +138,7 @@ struct OutputPacket {
 		return buf[0 .. implicit + pos];
 	}
 
+	/++ Format current packet buffer with length prefix and return payload bytes. +/
 	mixin OutputPacketMethods;
 
 private:
@@ -149,11 +153,14 @@ private:
 
 package:
 
+/++ Threshold used to choose alloca versus heap allocation for packet buffers. +/
 enum LargePacketSize = 32 * 1024;
 
+/++ Input and output protocol message-type namespaces. +/
 alias IMT = InputMessageType,
 OMT = OutputMessageType;
 
+/++ Allocate and initialize an output packet with the requested capacity. +/
 template Output(alias n, Args...) {
 	import core.stdc.stdlib;
 

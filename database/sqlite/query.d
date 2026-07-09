@@ -9,20 +9,32 @@ std.string,
 std.traits,
 std.typecons;
 
+/++ SQLite epoch used as the base for datetime conversion calculations. +/
 enum EpochDateTime = DateTime(2000, 1, 1, 0, 0, 0);
+/++ SQLite `SysTime` epoch offset baseline used in query timestamp conversion. +/
 enum EpochStdTime = 630_822_816_000_000_000; //SysTime(EpochDateTime, UTC()).stdTime
 
 private enum canConvertToInt(T) = __traits(isIntegral, T) ||
 	is(T : Date) || is(T : DateTime) || is(T : SysTime) || is(T : Duration);
 
-/// Represents a sqlite3 statement
+/++ Represents a sqlite3 statement. +/
 struct Query {
+	/++ Last SQLite return code from the most recent step/bind operation. +/
 	int lastCode;
+	/++ Current bind parameter index; increases as arguments are appended. +/
 	int argIndex;
+	/++ Native SQLite statement handle owned by this wrapper. +/
 	sqlite3_stmt* stmt;
+	/++ Implicitly forwards to the wrapped statement pointer for compatibility. +/
 	alias stmt this;
 
-	/// Construct a query from the string 'sql' into database 'db'
+	/++ Construct a query from SQL text.
+
+	Params:
+		db = SQLite database handle.
+		sql = SQL text to prepare.
+		args = Arguments bound to placeholders.
+	+/
 	this(A...)(sqlite3* db, in char[] sql, A args)
 	in (db)
 	in (sql.length <= int.max) {
@@ -35,35 +47,44 @@ struct Query {
 			set(args);
 	}
 
+	/++ Copy constructor (used by temporary query values); performs a shallow copy and reference-count adjustment. +/
 	this(this) {
 		_rc++;
 	}
 
+	/++ Finalize the wrapped statement when the last reference is released. +/
 	~this() {
 		if (--_rc == 0)
 			close();
 	}
 
-	/// Close the statement
+	/++ Close the statement. +/
 	void close() {
 		sqlite3_finalize(stmt);
 		stmt = null;
 	}
 
-	/// Bind these args in order to '?' marks in statement
+	/++ Bind values to '?' placeholders in order.
+
+	Params:
+		args = Arguments to bind.
+	+/
 	pragma(inline, true) void set(A...)(A args) {
 		foreach (a; args)
 			db.checkError!"Bind failed: "(bindArg(++argIndex, a));
 	}
 
+	/++ Clear all bound variables for this prepared statement. +/
 	int clear()
 	in (stmt) => sqlite3_clear_bindings(stmt);
 
-	/++ Find column by name
-		Params:
-			name = The column name to find
-		Returns: The column index, or -1 if not found
-	+/
+	/++ Find a column by name.
+
+Overloads:
+	- `findColumn(in char[] name)`
+	- `findColumn(scope const char* namez)`
+Returns: The column index, or `-1` if not found.
++/
 	int findColumn(in char[] name)
 	in (stmt) {
 		import core.stdc.string : strcmp;
@@ -77,7 +98,6 @@ struct Query {
 		return -1;
 	}
 
-	/// ditto
 	int findColumn(scope const char* namez)
 	in (stmt) {
 		import core.stdc.string : strcmp;
@@ -90,8 +110,10 @@ struct Query {
 		return -1;
 	}
 
+	/++ Current query object for range-based iteration. +/
 	auto ref front() => this;
 
+	/++ Step to the next row when advancing range iteration. +/
 	alias popFront = step;
 
 	/++ Get current row (and column) as a basic type
@@ -160,12 +182,14 @@ struct Query {
 		return lastCode == SQLITE_ROW;
 	}
 
+	/++ Indicates whether the current iteration has reached the end. +/
 	@property bool empty() {
 		if (lastCode == -1)
 			step();
 		return lastCode != SQLITE_ROW;
 	}
 
+	/++ Convert to `bool`; true when more rows are available. +/
 	T opCast(T : bool)() => !empty; // @suppress(dscanner.suspicious.object_const)
 
 	/++ Reset the statement, to step through the resulting rows again.
@@ -252,7 +276,7 @@ private:
 	}
 }
 
-///
+/// Query API tests.
 unittest {
 	mixin TEST;
 
@@ -268,7 +292,7 @@ unittest {
 	assert(!q.step());
 
 	q = db.query("select a,b from TEST where b == ?", 2);
-	// Try not stepping... assert(q.step());
+	/// Try not stepping... assert(q.step());
 	assert(q.get!(int, int) == tuple(1, 2));
 
 	struct Test {
@@ -284,7 +308,7 @@ unittest {
 	assert(q.step());
 	assert(q.get!(int, int) == tuple(1, 2));
 
-	// Test exception
+	/// Test exception
 	assertThrown!SQLEx(q.get!(byte[]));
 }
 

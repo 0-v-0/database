@@ -10,6 +10,7 @@ import
 import std.string;
 public import database.traits : SQLName;
 
+/++ SQL clause fragments used to assemble statements. +/
 enum State {
 	none = "",
 	create = "CREATE TABLE ",
@@ -29,6 +30,7 @@ enum State {
 	where = " WHERE "
 }
 
+/++ Optional `OR` behaviors used in insert statements. +/
 enum OR {
 	None = "",
 	Abort = "OR ABORT ",
@@ -40,6 +42,12 @@ enum OR {
 
 @safe:
 
+/++ Build a comma-separated list of numbered SQL placeholders (`$1`, `$2` ...).
+
+Params:
+	x = Number of placeholders to generate.
+Returns: A placeholder list or an empty string.
++/
 string placeholders(size_t x) pure nothrow {
 	import std.array;
 
@@ -51,6 +59,12 @@ string placeholders(size_t x) pure nothrow {
 	return s[];
 }
 
+/++ Append numbered SQL placeholders into an appender.
+
+Params:
+	x = Number of placeholders.
+	s = Destination appender-like object.
++/
 void placeholders(R)(size_t x, ref scope R s) {
 	import std.conv : to;
 
@@ -64,34 +78,52 @@ void placeholders(R)(size_t x, ref scope R s) {
 	}
 }
 
-/** An instance of a query building process */
+/++ An instance of a query building process. +/
 struct SQLBuilder {
 	string sql;
 	alias sql this;
 	State state;
 
+	/++ Construct a builder with an initial SQL fragment and state.
+
+	Params:
+		sql = SQL fragment content.
+		STATE = Initial clause state.
+	+/
 	this(string sql, State STATE = State.none) {
 		this.sql = STATE.startsWithWhite ? sql : STATE ~ sql;
 		state = STATE;
 	}
 
+	/++ Generate a CREATE TABLE statement for an aggregate type.
+
+	Params:
+		T = Aggregate type defining table schema.
+	Returns: A SQL builder carrying a CREATE TABLE statement.
+	+/
 	static SB create(T)() if (isAggregateType!T) {
 		enum sql = createTable!T;
 		return sql;
 	}
 
-	///
+	/// `create` examples and compile-time checks.
 	unittest {
 		assert(SQLBuilder.create!User == `CREATE TABLE IF NOT EXISTS "User"(name TEXT,age INT)`);
 		static assert(!__traits(compiles, SQLBuilder.create!int));
 	}
 
-	///
+	/++ Build an INSERT statement.
+
+	Overloads:
+		- `insert(OR or, const(char)[] table)`
+		- `insert(OR or, T)()`
+		- `insert(OR or, alias filter, T)()` (filtered columns)
+	Returns: A SQL builder for insert operations.
+	+/
 	static SB insert(OR or = OR.None, S:
 		const(char)[])(S table)
 		=> SB(or ~ "INTO " ~ identifier(table), State.insert);
 
-	///
 	static SB insert(OR or = OR.None, T)()
 		=> SB(or ~ "INTO " ~ identifier(SQLName!T), State.insert);
 
@@ -103,7 +135,7 @@ struct SQLBuilder {
 		return SB(make ~ placeholders(sqlFields.length) ~ ')', State.insert);
 	}
 
-	///
+	/// `insert` overload coverage checks.
 	unittest {
 		assert(SQLBuilder.insert("User") == `INSERT INTO "User"`);
 		assert(SQLBuilder.insert!(OR.Ignore, User) == `INSERT OR IGNORE INTO "User"`, SQLBuilder.insert!(OR.Ignore, skipRowid, User));
@@ -111,7 +143,7 @@ struct SQLBuilder {
 		assert(SQLBuilder.insert!Message == `INSERT INTO msg(contents)VALUES($1)`);
 	}
 
-	///
+	/++ Build a SELECT statement from field names or aggregate types. +/
 	static SB select(Args...)() if (Args.length) {
 		static if (allSatisfy!(isString, Args)) {
 			enum sql = [Args].join(',');
@@ -127,7 +159,7 @@ struct SQLBuilder {
 		}
 	}
 
-	///
+	/// `select` coverage checks with field/table overload inputs.
 	unittest {
 		assert(SQLBuilder.select!("only_one") == `SELECT only_one`);
 		assert(SQLBuilder.select!("hey", "you") == `SELECT hey,you`);
@@ -139,7 +171,7 @@ struct SQLBuilder {
 		}
 	}
 
-	///
+	/++ Build a SELECT * statement for one or more aggregate table types. +/
 	static SB selectAllFrom(Tables...)() if (allSatisfy!(isAggregateType, Tables)) {
 		string[] fields, tables;
 		foreach (S; Tables) {
@@ -154,48 +186,52 @@ struct SQLBuilder {
 		return SB("SELECT " ~ fields.join(',') ~ " FROM "
 				~ quoteJoin(tables), State.from);
 	}
-	///
+	/// `selectAllFrom` compile check with multiple table inputs.
 	unittest {
 		assert(SQLBuilder.selectAllFrom!(Message, User) ==
 				`SELECT msg.rowid,msg.contents,"User".name,"User".age FROM msg,"User"`);
 	}
 
-	///
+	/++ Add generated clause helpers for FROM/SET/SELECT. +/
 	mixin(Clause!("from", "set", "select"));
 
-	///
+	/++ Add one or more FROM table names (raw values). +/
 	SB from(Tables...)(Tables tables)
-	if (Tables.length > 1 && allSatisfy!(isString, Tables))
+		if (Tables.length > 1 && allSatisfy!(isString, Tables))
 		=> from([tables].join(','));
 
-	///
+	/++ Add FROM clause from one or more aggregate tables. +/
 	SB from(Tables...)() if (Tables.length && allSatisfy!(isAggregateType, Tables))
 		=> from(quoteJoin([staticMap!(SQLName, Tables)]));
 
-	///
+	/++ Add a subquery as FROM source. +/
 	SB from()(SB subquery) {
 		sql ~= (state = State.from) ~ '(' ~ subquery.sql ~ ')';
 		return this;
 	}
 
-	///
+	/++ Add generated clause helpers for SET/UPDATE. +/
 	mixin(Clause!("set", "update"));
 
-	///
+	/++ Build an UPDATE statement.
+
+Overloads:
+	- `update(OR or, const(char)[])`
+	- `update(T, OR or)()`
+	- `updateAll(T, OR or, filter)()`
+	+/
 	static SB update(OR or = OR.None, S:
 		const(char)[])(S table)
 		=> SB(or ~ identifier(table), State.update);
 
-	///
 	static SB update(T, OR or = OR.None)() if (isAggregateType!T)
 		=> SB(or ~ identifier(SQLName!T), State.update);
 
-	///
 	static SB updateAll(T, OR or = OR.None, alias filter = skipRowid)()
 	if (isAggregateType!T)
 		=> SB(make!("UPDATE " ~ or ~ identifier(SQLName!T) ~ " SET ", "=?", filter, T), State.set);
 
-	///
+	/// `update` overload coverage checks.
 	unittest {
 		assert(SQLBuilder.update("User") == `UPDATE "User"`);
 		assert(SQLBuilder.update!User == `UPDATE "User"`);
@@ -203,18 +239,22 @@ struct SQLBuilder {
 		assert(SQLBuilder.updateAll!User == `UPDATE "User" SET name=$1,age=$2`);
 	}
 
-	///
+	/++ Add generated clause helpers for WHERE/SET/FROM/DELETE. +/
 	mixin(Clause!("where", "set", "from", "del"));
 
-	///
+	/++ Build a DELETE statement.
+
+Overloads:
+	- `del(Table)()`
+	- `del(string table)`
+	+/
 	static SB del(Table)() if (isAggregateType!Table)
 		=> del(identifier(SQLName!Table));
 
-	///
 	static SB del(string table)
 		=> SB(table, State.del);
 
-	///
+	/// `del` overload coverage checks.
 	unittest {
 		assert(SQLBuilder.del!User.where("name=$1") ==
 				`DELETE FROM "User" WHERE name=$1`);
@@ -222,27 +262,33 @@ struct SQLBuilder {
 				`DELETE FROM "User" RETURNING *`);
 	}
 
-	///
+	/++ Add generated clause helpers for USING/DELETE. +/
 	mixin(Clause!("using", "del"));
 
-	///
+	/++ Add generated clause helpers for GROUP BY. +/
 	mixin(Clause!("groupBy", "from", "where"));
 
-	///
+	/++ Add generated clause helpers for HAVING. +/
 	mixin(Clause!("having", "from", "where", "groupBy"));
 
-	///
+	/++ Add generated clause helpers for ORDER BY. +/
 	mixin(Clause!("orderBy", "from", "where", "groupBy", "having"));
 
-	///
+	/++ Add generated clause helpers for LIMIT. +/
 	mixin(Clause!("limit", "from", "where", "groupBy", "having", "orderBy"));
 
-	///
+	/++ Add generated clause helpers for OFFSET. +/
 	mixin(Clause!("offset", "limit"));
 
-	///
+	/++ Add generated clause helpers for RETURNING. +/
 	mixin(Clause!("returning"));
 
+	/++ Append a raw SQL expression to the current SQL builder.
+
+	Params:
+		expr = SQL expression.
+	Returns: The updated statement builder.
+	+/
 	SB opCall(const(char)[] expr) {
 		sql ~= expr;
 		return this;
@@ -265,10 +311,10 @@ private:
 	}
 }
 
-///
+/// Test helpers for `SQLBuilder` examples.
 unittest {
-	// This will map to a "User" table in our database
-	struct User {
+		/// This will map to a "User" table in our database
+		struct User {
 		string name;
 		int age;
 	}
@@ -279,7 +325,7 @@ unittest {
 		.from!User
 		.where("age=$1");
 
-	// The properties `sql` can be used to access the generated sql
+	/// The properties `sql` can be used to access the generated sql
 	assert(q.sql == `SELECT name FROM "User" WHERE age=$1`);
 
 	/// We can decorate structs and fields to give them different names in the database.
@@ -288,8 +334,8 @@ unittest {
 		string contents;
 	}
 
-	// Note that virtual "rowid" field is handled differently -- it will not be created
-	// by create(), and not inserted into by insert()
+	/// Note that virtual "rowid" field is handled differently -- it will not be created
+	/// by create(), and not inserted into by insert()
 
 	assert(SB.create!Message == `CREATE TABLE IF NOT EXISTS msg(contents TEXT)`);
 
@@ -303,7 +349,7 @@ unittest {
 
 	alias C = ColumnName;
 
-	// Make sure all these generate the same sql statement
+	/// Make sure all these generate the same sql statement
 	auto sql = [
 		SB.select!(`msg.rowid`, `msg.contents`).from(`msg`)
 			.where(`msg.rowid=$1`).sql,
