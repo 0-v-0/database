@@ -8,7 +8,8 @@ database.postgresql.type,
 database.traits,
 std.traits;
 public import database.sqlbuilder;
-import std.utf;
+import std.utf,
+std.conv : to;
 
 @safe:
 

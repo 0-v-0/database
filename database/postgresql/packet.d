@@ -164,7 +164,10 @@ OMT = OutputMessageType;
 template Output(alias n, Args...) {
 	import core.stdc.stdlib;
 
-	auto buf = cast(ubyte*)(n > LargePacketSize ? malloc(n) : alloca(n));
+	// Use a stack buffer for small packets (alloca is rejected by DMD when
+	// exception handling is active) and heap allocation above the threshold.
+	ubyte[LargePacketSize] small = void;
+	auto buf = n > LargePacketSize ? cast(ubyte*)malloc(n) : small[0 .. n].ptr;
 	auto op = OutputPacket(Args, buf[0 .. n]);
 }
 
